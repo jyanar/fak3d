@@ -1,19 +1,23 @@
 import "CoreLibs/graphics"
+import "CoreLibs/3d"
+-- import "CoreLibs/strict"
+-- import "CoreLibs/geometry"
 
 import "utils"
+import "vector"
 
 local pd <const>  = playdate
 local gfx <const> = playdate.graphics
 
+local SCREEN_WIDTH  = 400
+local SCREEN_HEIGHT = 240
 local SPEED = 5
 
-local center = {x = 200, y = 120}
+local center = {x = 200, y = 120, z = 0}
+-- local center = geom.vector2D.new(200, 120)
 local spheres = {}
 
 function overlaps(sphere, set)
-    local function distanceBetween(a, b)
-        return math.sqrt((a.x - b.x)^2 + (a.y - b.y)^2 + (a.z - b.z)^2)
-    end
     if #spheres == 0 then
         return false
     else
@@ -42,11 +46,11 @@ function generateSpheres(n)
     return spheres
 end
 
-function worldtoscreen(x, y, z)
-    screenx = x
-    screeny = y
-    return screenx, screeny
-end
+-- function worldtoscreen()
+--     screenx = x
+--     screeny = y
+--     return screenx, screeny
+-- end
 
 function drawSphere(x, y, r)
     gfx.setColor(gfx.kColorBlack)
@@ -60,23 +64,59 @@ function drawSphereShadow(x, y, z, r)
     gfx.fillCircleAtPoint(x, y + z, r+1)
 end
 
+-- function drawSpheres()
+--     table.sort(spheres, function (a, b) return a.y+a.z+a.r < b.y+b.z+b.r end)
+--     for _, c in ipairs(spheres) do
+--         drawSphereShadow(c.x, c.y, c.z, c.r)
+--     end
+--     for _, c in ipairs(spheres) do
+--         drawSphere(c.x, c.y, c.r)
+--     end
+-- end
+
+camera = {x = 200, y = 120, z = 50} -- for now, no pitch/rotation. let's always point to origin
 function drawSpheres()
-    table.sort(spheres, function (a, b) return a.y+a.z+a.r < b.y+b.z+b.r end)
-    for _, c in ipairs(spheres) do
-        drawSphereShadow(c.x, c.y, c.z, c.r)
+    local spheresSP = {}
+    -- We are going to compute the 2D projection of the 3D scene onto the camera
+    -- (i.e., the screen). Let's point the camera to the origin.
+    local to_origin = Vector3(center.x - camera.x, center.y - camera.y, center.z - camera.z)
+
+    -- To start, let's compute the distance from the camera to each sphere.
+    -- This determines the draw sorting.
+    for i, _ in ipairs(spheres) do
+        spheres[i].depth = distanceBetween(camera, spheres[i])
     end
-    for _, c in ipairs(spheres) do
-        drawSphere(c.x, c.y, c.r)
+    table.sort(spheres, function(a, b) return a.depth < b.depth end)
+
+    -- Now let's compute the location of these spheres relative to the camera.
+    -- Note, there is space to either side of the camera: we'll display things up to
+    -- SCREEN_WIDTH/2 on either side of the camera placement. Because the camera is
+    -- always facing the center, we do not have to do anything. We would have to
+    -- revisit this if we allowed for moving the camera further and closer.
+    local origin = Vector3(camera.x, camera.y, camera.z)
+    local nhat = to_origin:normalize()
+    for _, s in ipairs(spheres) do
+        local point = Vector3(s.x, s.y, s.z)
+        local originToPoint = point:sub(origin)
+        local distPlaneToPoint = originToPoint:dot(nhat)
+        local normalProjection = nhat:mult(distPlaneToPoint)
+        local planeProj = point:sub(normalProjection)
+        table.insert(spheresSP, {x = planeProj.x, y = planeProj.y, z = planeProj.z, r = s.r})
+    end
+
+    for _, s in ipairs(spheresSP) do
+        drawSphere(s.x, s.y, s.r)
     end
 end
 
--- local camera = {x = 200, y = 120, z = 50, pitch = 0, rotation = 0}
--- function drawSpheres(camera)
---     -- We are going to compute the 2D projection of the 3D scene onto the camera
---     -- (i.e., the screen).
-
-
--- end
+function getinput()
+    local movx, movy = 0, 0;
+    if pd.buttonIsPressed(pd.kButtonUp)    then movy += SPEED end
+    if pd.buttonIsPressed(pd.kButtonDown)  then movy -= SPEED end
+    if pd.buttonIsPressed(pd.kButtonLeft)  then movx += SPEED end
+    if pd.buttonIsPressed(pd.kButtonRight) then movx -= SPEED end
+    return movx, movy
+end
 
 
 function playdate.update()
@@ -85,34 +125,19 @@ function playdate.update()
         generateSpheres(30)
         drawSpheres()
     end
+
     -- Check for input
-    movx = 0; movy = 0;
-    if pd.buttonIsPressed(pd.kButtonUp)    then movy += SPEED end
-    if pd.buttonIsPressed(pd.kButtonDown)  then movy -= SPEED end
-    if pd.buttonIsPressed(pd.kButtonLeft)  then movx += SPEED end
-    if pd.buttonIsPressed(pd.kButtonRight) then movx -= SPEED end
+    local movx, movy = getinput()
+
     -- Apply movement
     for i, _ in ipairs(spheres) do
         spheres[i].x += movx
-        --spheres[i].x += movy
-        -- For pitch, we need to rotate around the origin. Spheres that are
-        -- closer to us will move up, whereas farther away will move down.
-        -- This will result in all of them lining up.
-        local distancefromcenter = spheres[i].y - center.y
-        if distancefromcenter > 0 then
-            spheres[i].y, _ = approach(spheres[i].y, center.y, math.abs(movy))
-        elseif distancefromcenter < 0 then
-            spheres[i].y, _ = approach(spheres[i].y, center.y, math.abs(movy))
-        end
-        -- if distancefromcenter > 0 then
-        -- spheres[i].y = approach(spheres[i].y, center.y, math.abs(movy))
-        -- elseif distancefromcenter < 0 then
-        --     spheres[i].y = approach(center.y, spheres[i].y, movy)
-        -- end
+        spheres[i].x += movy
     end
 
     center.x += movx
     center.y += movy
+
     gfx.clear(gfx.kColorWhite)
     drawSpheres()
 
