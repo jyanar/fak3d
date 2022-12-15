@@ -1,182 +1,177 @@
 import "CoreLibs/graphics"
 
-import "utils"
 import "vector"
+import "matrix"
 
 local pd <const>  = playdate
 local gfx <const> = playdate.graphics
 
--- Constants
+class('Triangle').extends()
+
+function Triangle:init()
+    self.p1 = Vector3()
+    self.p2 = Vector3()
+    self.p3 = Vector3()
+end
+
+class('Mesh').extends()
+
+function Mesh:init()
+    self.tris = {}
+end
+
+local ASP_RATIO     = 200 / 400
+-- local FOV       = 1 / math.tan(45/2)
+local FOV           = 45
+local FOVRAD        = 1 / math.tan(FOV * 0.5 / 180 * math.pi)
+local ZFAR          = 1000
+local ZNEAR         = 0.1
+local Q             = ZFAR / (ZFAR - ZNEAR)
 local SCREEN_WIDTH  = 400
-local SCREEN_HEIGHT = 240
-local SPEED = 5
-local LO_X = -100
-local HI_X = SCREEN_WIDTH + 100
-local LO_Y = -100
-local HI_Y = SCREEN_HEIGHT + 100
-local CENTER = Vector2(200, 120, 0)
+local SCREEN_HEIGHT = 200
 
--- Vars
-local center = {x = 200, y = 120, z = 0}
-local spheres = {}
+-- Matrices
+local mat_proj = Mat4x4()
+local mat_rotx = Mat4x4()
+local mat_rotz = Mat4x4()
+local mat_roty = Mat4x4()
 
-function overlaps(sphere, set)
-    if #spheres == 0 then
-        return false
-    else
-        for idx, sphere2 in ipairs(set) do
-            if distanceBetween(sphere, sphere2) < sphere.r + sphere2.r then
-                return true
-            end
-        end
-        return false
+-- Variables
+local cube = {}
+local cube_proj = {}
+local theta = 1
+
+function init()
+    -- Set up cube
+    cube = {
+        -- South
+        { Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0) },
+        { Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(1, 0, 0) },
+        -- East
+        { Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1) },
+        { Vector3(1, 0, 0), Vector3(1, 1, 1), Vector3(1, 0, 1) },
+        -- North
+        { Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1) },
+        { Vector3(1, 0, 1), Vector3(0, 1, 1), Vector3(0, 0, 1) },
+        -- West
+        { Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(0, 1, 0) },
+        { Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(0, 0, 0) },
+        -- Top
+        { Vector3(0, 1, 0), Vector3(0, 1, 1), Vector3(1, 1, 1) },
+        { Vector3(0, 1, 0), Vector3(1, 1, 1), Vector3(1, 1, 0) },
+        -- Bottom
+        { Vector3(1, 0, 1), Vector3(0, 0, 1), Vector3(0, 0, 0) },
+        { Vector3(1, 0, 1), Vector3(0, 0, 0), Vector3(1, 0, 0) }
+    }
+    -- Set up cube projection
+    cube_proj = {
+        -- South
+        { Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0) },
+        { Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(1, 0, 0) },
+        -- East
+        { Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1) },
+        { Vector3(1, 0, 0), Vector3(1, 1, 1), Vector3(1, 0, 1) },
+        -- North
+        { Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1) },
+        { Vector3(1, 0, 1), Vector3(0, 1, 1), Vector3(0, 0, 1) },
+        -- West
+        { Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(0, 1, 0) },
+        { Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(0, 0, 0) },
+        -- Top
+        { Vector3(0, 1, 0), Vector3(0, 1, 1), Vector3(1, 1, 1) },
+        { Vector3(0, 1, 0), Vector3(1, 1, 1), Vector3(1, 1, 0) },
+        -- Bottom
+        { Vector3(1, 0, 1), Vector3(0, 0, 1), Vector3(0, 0, 0) },
+        { Vector3(1, 0, 1), Vector3(0, 0, 0), Vector3(1, 0, 0) }
+    }
+
+    -- Set up matrices
+    mat_proj:set(1, 1, ASP_RATIO * FOVRAD)
+    mat_proj:set(2, 2, FOVRAD)
+    mat_proj:set(3, 3, Q)
+    mat_proj:set(4, 3, -1 * ZNEAR * Q)
+    mat_proj:set(3, 4, 1)
+
+
+    -- First, let's add a bit of translation into the z-axis
+    for idx, _ in ipairs(cube) do
+        cube[idx][1].z += 3
+        cube[idx][2].z += 3
+        cube[idx][3].z += 3
     end
 end
 
-local toGround = Vector2(0, -1)
+local ctr = 0
 
-function generateSpheres(n)
-    spheres = {}
-    for i = 1, n, 1 do
-        local r = math.random(10, 20)
-        -- local x, y, z = math.random(20, 380), math.random(20, 180), math.random(2, 30)
-        local x, y, z = math.random(LO_X, HI_X), math.random(LO_Y, HI_Y), math.random(2, 30)
-        local sphere = {x = x, y = y, z = z, r = r}
-        while overlaps(sphere, spheres) do
-            r = math.random(10, 20)
-            x, y, z = math.random(20, 380), math.random(20, 180), math.random(2, 40)
-            sphere = {x = x, y = y, z = z, r = r}
-        end
-        table.insert(spheres, {r = r, x = x, y = y, z = z})
-    end
-    return spheres
-end
-
-function drawSphere(x, y, r)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.drawCircleAtPoint(x, y, r+1)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillCircleAtPoint(x, y, r)
-end
-
--- TODO rotate shadows with crank
-function drawSphereShadow(x, y, z, r)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillCircleAtPoint(x, y - z, r+1)
-end
-
-function drawSphereShadow2(pos, toGround, r)
-    gfx.setColor(gfx.kColorBlack)
-    toGround = toGround:normalize():mult(pos.z)
-    gfx.fillCircleAtPoint(pos.x + toGround.x, pos.y + toGround.y, r)
-end
-
--- function drawSpheres()
---     table.sort(spheres, function (a, b) return a.y+a.z+a.r < b.y+b.z+b.r end)
---     for _, c in ipairs(spheres) do
---         drawSphereShadow(c.x, c.y, c.z, c.r)
---     end
---     for _, c in ipairs(spheres) do
---         drawSphere(c.x, c.y, c.r)
---     end
--- end
-
-camera = {x = 200, y = 120, z = 50} -- for now, no pitch/rotation. let's always point to origin
-nhat = Vector3(center.x - camera.x, center.y - camera.y, center.z - camera.z)
-function drawSpheres()
-    local spheresSP = {}
-    -- We are going to compute the 2D projection of the 3D scene onto the camera
-    -- (i.e., the screen). Let's point the camera to the origin.
-    -- local to_origin = Vector3(center.x - camera.x, center.y - camera.y, center.z - camera.z)
-
-    -- To start, let's compute the distance from the camera to each sphere.
-    -- This determines the draw sorting.
-    for i, _ in ipairs(spheres) do
-        spheres[i].depth = distanceBetween(camera, spheres[i])
-    end
-    table.sort(spheres, function(a, b) return a.depth < b.depth end)
-
-    -- spheresSP = spheres
-    -- -- Now let's compute the location of these spheres relative to the camera.
-    -- -- Note, there is space to either side of the camera: we'll display things up to
-    -- -- SCREEN_WIDTH/2 on either side of the camera placement. Because the camera is
-    -- -- always facing the center, we do not have to do anything. We would have to
-    -- -- revisit this if we allowed for moving the camera further and closer.
-    -- local origin = Vector3(camera.x, camera.y, camera.z)
-    -- -- local nhat = to_origin:normalize()
-    -- for _, s in ipairs(spheres) do
-    --     local point = Vector3(s.x, s.y, s.z)
-    --     local originToPoint = point:sub(origin)
-    --     local distPlaneToPoint = originToPoint:dot(nhat)
-    --     local normalProjection = nhat:mult(distPlaneToPoint)
-    --     local planeProj = point:sub(normalProjection)
-    --     table.insert(spheresSP, {x = planeProj.x, y = planeProj.y, z = planeProj.z, r = s.r})
-    -- end
-
-    for _, s in ipairs(spheres) do
-        drawSphereShadow2(Vector3(s.x, s.y, s.z), toGround, s.r)
-        -- drawSphereShadow(s.x, s.y, s.z, s.r)
-    end
-
-    for _, s in ipairs(spheres) do
-        drawSphere(s.x, s.y, s.r)
-    end
-end
-
-function getinput()
-    local movx, movy = 0, 0;
-    if pd.buttonIsPressed(pd.kButtonUp)    then movy += SPEED end
-    if pd.buttonIsPressed(pd.kButtonDown)  then movy -= SPEED end
-    if pd.buttonIsPressed(pd.kButtonLeft)  then movx += SPEED end
-    if pd.buttonIsPressed(pd.kButtonRight) then movx -= SPEED end
-    return movx, movy
-end
-
-
+init()
 function playdate.update()
-    -- Initialize
-    if #spheres == 0 then
-        generateSpheres(30)
-        drawSpheres()
-    end
 
-    -- Check for input
-    local movx, movy = getinput()
-
-    -- Apply movement
-    for i, _ in ipairs(spheres) do
-        spheres[i].x -= movx
-        spheres[i].y -= movy
-    end
-
-    center.x -= movx
-    center.y -= movy
 
     gfx.clear(gfx.kColorWhite)
-    drawSpheres()
 
-    gfx.sprite.update()
-end
+    -- Update matrix with latest theta
+    mat_rotx:set(1, 1, 1)
+    mat_rotx:set(2, 2, math.cos(theta * 0.5))
+    mat_rotx:set(2, 3, math.sin(theta * 0.5))
+    mat_rotx:set(3, 2, -math.sin(theta * 0.5))
+    mat_rotx:set(3, 3, math.cos(theta * 0.5))
+    mat_rotx:set(4, 4, 1)
 
-function playdate.cranked(change, acceleratedChange)
-    change = change / 360
-    -- Update all spheres
-    for i, _ in ipairs(spheres) do
-        -- Compute sphere positions relative to screen center
-        local x = spheres[i].x - center.x
-        local y = spheres[i].y - center.y
-        -- Apply rotation
-        spheres[i].x = x * math.cos(change) - y * math.sin(change)
-        spheres[i].y = x * math.sin(change) + y * math.cos(change)
-        -- Unapply coordinate transform
-        spheres[i].x += center.x
-        spheres[i].y += center.y
+    mat_rotz:set(1, 1, math.cos(theta))
+    mat_rotz:set(1, 2, math.sin(theta))
+    mat_rotz:set(2, 1, -math.sin(theta))
+    mat_rotz:set(2, 2, math.cos(theta))
+    mat_rotz:set(3, 3, 1)
+    mat_rotz:set(4, 4, 1)
 
-        -- Apply rotation to the toGround vector
-        toGround.x = toGround.x * math.cos(change) - toGround.y * math.sin(change)
-        toGround.y = toGround.x * math.sin(change) + toGround.y * math.cos(change)
+    theta += 1 / 30
+
+    -- Project the triangles onto the screen.
+    for idx, _ in ipairs(cube_proj) do
+        -- -- Now let's rotate the cube around the z and x axis!
+        cube_proj[idx][1] = mat_rotz:multvec3_pre(cube[idx][1])
+        cube_proj[idx][2] = mat_rotz:multvec3_pre(cube[idx][2])
+        cube_proj[idx][3] = mat_rotz:multvec3_pre(cube[idx][3])
+        cube_proj[idx][1] = mat_rotx:multvec3_pre(cube_proj[idx][1])
+        cube_proj[idx][2] = mat_rotx:multvec3_pre(cube_proj[idx][2])
+        cube_proj[idx][3] = mat_rotx:multvec3_pre(cube_proj[idx][3])
+
+        -- Offset into the screen
+        cube_proj[idx][1].z += 10
+        cube_proj[idx][2].z += 10
+        cube_proj[idx][3].z += 10
+
+        -- Project onto the screen
+        cube_proj[idx][1] = mat_proj:multvec3_pre(cube_proj[idx][1])
+        cube_proj[idx][2] = mat_proj:multvec3_pre(cube_proj[idx][2])
+        cube_proj[idx][3] = mat_proj:multvec3_pre(cube_proj[idx][3])
+
+        -- Scale into view
+        cube_proj[idx][1].x += 1;
+        cube_proj[idx][1].y += 1
+        cube_proj[idx][2].x += 1;
+        cube_proj[idx][2].y += 1
+        cube_proj[idx][3].x += 1;
+        cube_proj[idx][3].y += 1
+
+        cube_proj[idx][1].x *= 0.5 * SCREEN_WIDTH
+        cube_proj[idx][1].y *= 0.5 * SCREEN_HEIGHT
+        cube_proj[idx][2].x *= 0.5 * SCREEN_WIDTH
+        cube_proj[idx][2].y *= 0.5 * SCREEN_HEIGHT
+        cube_proj[idx][3].x *= 0.5 * SCREEN_WIDTH
+        cube_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
+
+        -- -- And draw!
+        -- print(cube_proj[idx][1]:tostring())
+        -- print(cube_proj[idx][2]:tostring())
+        -- print(cube_proj[idx][3]:tostring())
+
+        gfx.drawPolygon(
+            cube_proj[idx][1].x, cube_proj[idx][1].y,
+            cube_proj[idx][2].x, cube_proj[idx][2].y,
+            cube_proj[idx][3].x, cube_proj[idx][3].y
+        )
     end
-    -- Clear the screen, redraw
-    gfx.clear(gfx.kColorWhite)
-    drawSpheres()
+
+    pd.drawFPS(10, 10)
 end

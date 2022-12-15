@@ -6,7 +6,7 @@ class('Vector2').extends()
 function Vector2:init(x, y)
     self.x = x
     self.y = y
-    self.z = z
+
 end
 
 function Vector2:tostring()
