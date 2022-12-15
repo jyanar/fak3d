@@ -17,6 +17,15 @@ function Vector2:magnitude()
     return math.sqrt(self.x*self.x + self.y*self.y)
 end
 
+function Vector2:normalize()
+    local mag = self:magnitude()
+    return Vector2(self.x/mag, self.y/mag)
+end
+
+function Vector2:mult(scalar)
+    return Vector2(self.x * scalar, self.y * scalar)
+end
+
 function Vector2:dot(vec)
     return self.x * vec.x + self.y * vec.y
 end
