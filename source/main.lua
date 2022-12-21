@@ -15,6 +15,7 @@ local Q             = ZFAR / (ZFAR - ZNEAR)
 local SCREEN_WIDTH  = 400
 local SCREEN_HEIGHT = 200
 local CAMERA        = Vector3(0, 0, 1)
+local LIGHT_DIR     = Vector3(0, 1, 0)
 
 -- Matrices
 local mat_proj = Mat4x4()
@@ -127,6 +128,9 @@ function playdate.update()
         local b = cube_proj[idx][3]:sub(cube_proj[idx][1])
         local n = a:cross(b)
 
+        -- Illumination
+        local d = n:dot(LIGHT_DIR)
+
         if n.z < 0 then
             -- Scale into view
             cube_proj[idx][1].x += 1
@@ -144,12 +148,20 @@ function playdate.update()
             cube_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
 
             -- And draw! (only if the normal of the triangle faces us)
-
+            gfx.setColor(gfx.kColorBlack)
             gfx.drawPolygon(
                 cube_proj[idx][1].x, cube_proj[idx][1].y,
                 cube_proj[idx][2].x, cube_proj[idx][2].y,
                 cube_proj[idx][3].x, cube_proj[idx][3].y
             )
+            if d > 0 then
+                gfx.setPattern({ 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55 })
+                gfx.fillPolygon(
+                    cube_proj[idx][1].x, cube_proj[idx][1].y,
+                    cube_proj[idx][2].x, cube_proj[idx][2].y,
+                    cube_proj[idx][3].x, cube_proj[idx][3].y
+                )
+            end
         end
     end
 
