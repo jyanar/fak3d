@@ -14,6 +14,7 @@ local ZNEAR         = 1
 local Q             = ZFAR / (ZFAR - ZNEAR)
 local SCREEN_WIDTH  = 400
 local SCREEN_HEIGHT = 200
+local CAMERA        = Vector3(0, 0, 1)
 
 -- Matrices
 local mat_proj = Mat4x4()
@@ -51,23 +52,17 @@ function init()
     -- Set up cube projection
     cube_proj = {
         -- South
-        { Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0) },
-        { Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(1, 0, 0) },
+        {}, {},
         -- East
-        { Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1) },
-        { Vector3(1, 0, 0), Vector3(1, 1, 1), Vector3(1, 0, 1) },
+        {}, {},
         -- North
-        { Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1) },
-        { Vector3(1, 0, 1), Vector3(0, 1, 1), Vector3(0, 0, 1) },
+        {}, {},
         -- West
-        { Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(0, 1, 0) },
-        { Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(0, 0, 0) },
+        {}, {},
         -- Top
-        { Vector3(0, 1, 0), Vector3(0, 1, 1), Vector3(1, 1, 1) },
-        { Vector3(0, 1, 0), Vector3(1, 1, 1), Vector3(1, 1, 0) },
+        {}, {},
         -- Bottom
-        { Vector3(1, 0, 1), Vector3(0, 0, 1), Vector3(0, 0, 0) },
-        { Vector3(1, 0, 1), Vector3(0, 0, 0), Vector3(1, 0, 0) }
+        {}, {}
     }
 
     -- Set up matrices
@@ -111,7 +106,7 @@ function playdate.update()
 
     -- Project the triangles onto the screen.
     for idx, _ in ipairs(cube_proj) do
-        -- -- Now let's rotate the cube around the z and x axis!
+        -- Now let's rotate the cube around the z and x axis!
         cube_proj[idx][1] = mat_rotz:multvec3_pre(cube[idx][1])
         cube_proj[idx][2] = mat_rotz:multvec3_pre(cube[idx][2])
         cube_proj[idx][3] = mat_rotz:multvec3_pre(cube[idx][3])
@@ -128,28 +123,34 @@ function playdate.update()
         cube_proj[idx][1] = mat_proj:multvec3_pre(cube_proj[idx][1])
         cube_proj[idx][2] = mat_proj:multvec3_pre(cube_proj[idx][2])
         cube_proj[idx][3] = mat_proj:multvec3_pre(cube_proj[idx][3])
+        local a = cube_proj[idx][2]:sub(cube_proj[idx][1])
+        local b = cube_proj[idx][3]:sub(cube_proj[idx][1])
+        local n = a:cross(b)
 
-        -- Scale into view
-        cube_proj[idx][1].x += 1
-        cube_proj[idx][1].y += 1
-        cube_proj[idx][2].x += 1
-        cube_proj[idx][2].y += 1
-        cube_proj[idx][3].x += 1
-        cube_proj[idx][3].y += 1
+        if n.z < 0 then
+            -- Scale into view
+            cube_proj[idx][1].x += 1
+            cube_proj[idx][1].y += 1
+            cube_proj[idx][2].x += 1
+            cube_proj[idx][2].y += 1
+            cube_proj[idx][3].x += 1
+            cube_proj[idx][3].y += 1
 
-        cube_proj[idx][1].x *= 0.5 * SCREEN_WIDTH
-        cube_proj[idx][1].y *= 0.5 * SCREEN_HEIGHT
-        cube_proj[idx][2].x *= 0.5 * SCREEN_WIDTH
-        cube_proj[idx][2].y *= 0.5 * SCREEN_HEIGHT
-        cube_proj[idx][3].x *= 0.5 * SCREEN_WIDTH
-        cube_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
+            cube_proj[idx][1].x *= 0.5 * SCREEN_WIDTH
+            cube_proj[idx][1].y *= 0.5 * SCREEN_HEIGHT
+            cube_proj[idx][2].x *= 0.5 * SCREEN_WIDTH
+            cube_proj[idx][2].y *= 0.5 * SCREEN_HEIGHT
+            cube_proj[idx][3].x *= 0.5 * SCREEN_WIDTH
+            cube_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
 
-        -- And draw!
-        gfx.drawPolygon(
-            cube_proj[idx][1].x, cube_proj[idx][1].y,
-            cube_proj[idx][2].x, cube_proj[idx][2].y,
-            cube_proj[idx][3].x, cube_proj[idx][3].y
-        )
+            -- And draw! (only if the normal of the triangle faces us)
+
+            gfx.drawPolygon(
+                cube_proj[idx][1].x, cube_proj[idx][1].y,
+                cube_proj[idx][2].x, cube_proj[idx][2].y,
+                cube_proj[idx][3].x, cube_proj[idx][3].y
+            )
+        end
     end
 
     pd.drawFPS(10, 10)
