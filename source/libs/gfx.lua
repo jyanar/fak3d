@@ -82,7 +82,6 @@ function ObjReader.read(fname)
     local vtable = {}
     local ftable = {}
     local mesh = {}
-
     local objfile = pd.file.open(fname)
     local file_not_read = true
     while file_not_read do
@@ -104,8 +103,8 @@ function ObjReader.read(fname)
         local p1 = vtable[face[1]]
         local p2 = vtable[face[2]]
         local p3 = vtable[face[3]]
-        local tri = { Vector3(p1[1], p1[2], p3[3]),
-                      Vector3(p2[1], p2[2], p3[3]),
+        local tri = { Vector3(p1[1], p1[2], p1[3]),
+                      Vector3(p2[1], p2[2], p2[3]),
                       Vector3(p3[1], p3[2], p3[3]) }
         table.insert(mesh, tri)
     end

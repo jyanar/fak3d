@@ -1,7 +1,9 @@
 import "CoreLibs/graphics"
 
-import "vector"
-import "matrix"
+import "libs/utils"
+import "libs/gfx"
+import "libs/linear"
+local lume = import "libs/lume"
 
 local pd <const>  = playdate
 local gfx <const> = playdate.graphics
@@ -27,29 +29,30 @@ local mat_roty = Mat4x4()
 local cube = {}
 local cube_proj = {}
 local theta = 1
+local mesh = Mesh()
 
 function init()
-    -- Set up cube
-    cube = {
-        -- South
-        { Vector3(0, 0, 0), Vector3(0, 2, 0), Vector3(2, 2, 0) },
-        { Vector3(0, 0, 0), Vector3(2, 2, 0), Vector3(2, 0, 0) },
-        -- East
-        { Vector3(2, 0, 0), Vector3(2, 2, 0), Vector3(2, 2, 2) },
-        { Vector3(2, 0, 0), Vector3(2, 2, 2), Vector3(2, 0, 2) },
-        -- North
-        { Vector3(2, 0, 2), Vector3(2, 2, 2), Vector3(0, 2, 2) },
-        { Vector3(2, 0, 2), Vector3(0, 2, 2), Vector3(0, 0, 2) },
-        -- West
-        { Vector3(0, 0, 2), Vector3(0, 2, 2), Vector3(0, 2, 0) },
-        { Vector3(0, 0, 2), Vector3(0, 2, 0), Vector3(0, 0, 0) },
-        -- Top
-        { Vector3(0, 2, 0), Vector3(0, 2, 2), Vector3(2, 2, 2) },
-        { Vector3(0, 2, 0), Vector3(2, 2, 2), Vector3(2, 2, 0) },
-        -- Bottom
-        { Vector3(2, 0, 2), Vector3(0, 0, 2), Vector3(0, 0, 0) },
-        { Vector3(2, 0, 2), Vector3(0, 0, 0), Vector3(2, 0, 0) }
-    }
+    -- -- Set up cube
+    -- cube = {
+    --     -- South
+    --     { Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0) },
+    --     { Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(1, 0, 0) },
+    --     -- East
+    --     { Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1) },
+    --     { Vector3(1, 0, 0), Vector3(1, 1, 1), Vector3(1, 0, 1) },
+    --     -- North
+    --     { Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1) },
+    --     { Vector3(1, 0, 1), Vector3(0, 1, 1), Vector3(0, 0, 1) },
+    --     -- West
+    --     { Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(0, 1, 0) },
+    --     { Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(0, 0, 0) },
+    --     -- Top
+    --     { Vector3(0, 1, 0), Vector3(0, 1, 1), Vector3(1, 1, 1) },
+    --     { Vector3(0, 1, 0), Vector3(1, 1, 1), Vector3(1, 1, 0) },
+    --     -- Bottom
+    --     { Vector3(1, 0, 1), Vector3(0, 0, 1), Vector3(0, 0, 0) },
+    --     { Vector3(1, 0, 1), Vector3(0, 0, 0), Vector3(1, 0, 0) }
+    -- }
     -- Set up cube projection
     cube_proj = {
         -- South
@@ -73,13 +76,18 @@ function init()
     mat_proj:set(4, 3, -1 * ZNEAR * Q)
     mat_proj:set(3, 4, 1)
 
+    -- Let's read in the file
+    cube = ObjReader.read('assets/cube.obj')
+
     -- First, let's add a bit of translation into the z-axis
     for idx, _ in ipairs(cube) do
-        cube[idx][1].x += -1
-        cube[idx][2].x += -1
-        cube[idx][3].x += -1
+        cube[idx][1].x += 1
+        cube[idx][2].x += 1
+        cube[idx][3].x += 1
     end
+
 end
+
 
 
 init()
@@ -103,22 +111,21 @@ function playdate.update()
     mat_rotz:set(3, 3, 1)
     mat_rotz:set(4, 4, 1)
 
+    local mat_rot = mat_rotz:mult(mat_rotx)
+
     theta += 1 / 30
 
     -- Project the triangles onto the screen.
     for idx, _ in ipairs(cube_proj) do
         -- Now let's rotate the cube around the z and x axis!
-        cube_proj[idx][1] = mat_rotz:multvec3_pre(cube[idx][1])
-        cube_proj[idx][2] = mat_rotz:multvec3_pre(cube[idx][2])
-        cube_proj[idx][3] = mat_rotz:multvec3_pre(cube[idx][3])
-        cube_proj[idx][1] = mat_rotx:multvec3_pre(cube_proj[idx][1])
-        cube_proj[idx][2] = mat_rotx:multvec3_pre(cube_proj[idx][2])
-        cube_proj[idx][3] = mat_rotx:multvec3_pre(cube_proj[idx][3])
+        cube_proj[idx][1] = mat_rot:multvec3_pre(cube[idx][1])
+        cube_proj[idx][2] = mat_rot:multvec3_pre(cube[idx][2])
+        cube_proj[idx][3] = mat_rot:multvec3_pre(cube[idx][3])
 
         -- Offset into the screen
-        cube_proj[idx][1].z += 10
-        cube_proj[idx][2].z += 10
-        cube_proj[idx][3].z += 10
+        cube_proj[idx][1].z += 3
+        cube_proj[idx][2].z += 3
+        cube_proj[idx][3].z += 3
 
         -- Project onto the screen
         cube_proj[idx][1] = mat_proj:multvec3_pre(cube_proj[idx][1])
@@ -133,19 +140,12 @@ function playdate.update()
 
         if n.z < 0 then
             -- Scale into view
-            cube_proj[idx][1].x += 1
-            cube_proj[idx][1].y += 1
-            cube_proj[idx][2].x += 1
-            cube_proj[idx][2].y += 1
-            cube_proj[idx][3].x += 1
-            cube_proj[idx][3].y += 1
-
-            cube_proj[idx][1].x *= 0.5 * SCREEN_WIDTH
-            cube_proj[idx][1].y *= 0.5 * SCREEN_HEIGHT
-            cube_proj[idx][2].x *= 0.5 * SCREEN_WIDTH
-            cube_proj[idx][2].y *= 0.5 * SCREEN_HEIGHT
-            cube_proj[idx][3].x *= 0.5 * SCREEN_WIDTH
-            cube_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
+            cube_proj[idx][1].x += 1 ; cube_proj[idx][1].x *= 0.5 * SCREEN_WIDTH
+            cube_proj[idx][1].y += 1 ; cube_proj[idx][1].y *= 0.5 * SCREEN_HEIGHT
+            cube_proj[idx][2].x += 1 ; cube_proj[idx][2].x *= 0.5 * SCREEN_WIDTH
+            cube_proj[idx][2].y += 1 ; cube_proj[idx][2].y *= 0.5 * SCREEN_HEIGHT
+            cube_proj[idx][3].x += 1 ; cube_proj[idx][3].x *= 0.5 * SCREEN_WIDTH
+            cube_proj[idx][3].y += 1 ; cube_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
 
             -- And draw! (only if the normal of the triangle faces us)
             gfx.setColor(gfx.kColorBlack)
