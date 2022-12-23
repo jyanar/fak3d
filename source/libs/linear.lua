@@ -90,16 +90,16 @@ class('Mat4x4').extends()
 
 function Mat4x4:init()
     self.m = {}
-    for i = 1, 4 do
-        self.m[i] = {}
-        for j = 1, 4 do
-            self.m[i][j] = 0
+    for irow = 1, 4 do
+        self.m[irow] = {}
+        for icol = 1, 4 do
+            self.m[irow][icol] = 0
         end
     end
 end
 
-function Mat4x4:set(i, j, val)
-    self.m[i][j] = val
+function Mat4x4:set(irow, icol, val)
+    self.m[irow][icol] = val
 end
 
 function Mat4x4:tostring()

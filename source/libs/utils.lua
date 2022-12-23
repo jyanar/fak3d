@@ -55,22 +55,29 @@ function distanceBetween(a, b)
     return math.sqrt((a.x - b.x)^2 + (a.y - b.y)^2 + (a.z - b.z)^2)
 end
 
-local patternescape = function(str)
-    return str:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")
+-- binary string to number
+local function b(e)
+    return tonumber(e, 2)
 end
 
-function lume_array(...)
-    local t = {}
-    for x in ... do t[#t + 1] = x end
-    return t
-end
+PATTERN_DIAG_LINES = { --  diagonal lines
+    b('11110000'),
+    b('11100001'),
+    b('11000011'),
+    b('10000111'),
+    b('00001111'),
+    b('00011110'),
+    b('00111100'),
+    b('01111000'),
+}
 
-function lume_split(str, sep)
-    if not sep then
-        return lume_array(str:gmatch("([%S]+)"))
-    else
-        assert(sep ~= "", "empty separator")
-        local psep = patternescape(sep)
-        return lume_array((str .. sep):gmatch("(.-)(" .. psep .. ")"))
-    end
-end
+PATTERN_VERTICAL_LINES = {
+    b('11100011'),
+    b('11100011'),
+    b('11100011'),
+    b('11100011'),
+    b('11100011'),
+    b('11100011'),
+    b('11100011'),
+    b('11100011'),
+}
