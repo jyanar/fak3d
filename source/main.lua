@@ -33,28 +33,11 @@ local mat_rotz = Mat4x4()
 local mat_roty = Mat4x4()
 
 -- Variables
-local cube = {}
-local cube_proj = {}
+local mesh = {}
+local mesh_proj = {}
 local theta = 1
-local mesh = Mesh()
 
 function init()
-    -- Set up cube projection
-    cube_proj = {
-        -- South
-        {}, {},
-        -- East
-        {}, {},
-        -- North
-        {}, {},
-        -- West
-        {}, {},
-        -- Top
-        {}, {},
-        -- Bottom
-        {}, {}
-    }
-
     -- Set up matrices
     mat_proj:set(1, 1, ASP_RATIO * FOVRAD)
     mat_proj:set(2, 2, FOVRAD)
@@ -63,13 +46,18 @@ function init()
     mat_proj:set(3, 4, 1)
 
     -- Let's read in the file
-    cube = ObjReader.read('assets/icosahedron.obj')
+    mesh = ObjReader.read('assets/dog_friend.obj')
+
+    -- Set up mesh projection
+    for i = 1, #mesh, 1 do
+        table.insert(mesh_proj, {})
+    end
 
     -- First, let's add a bit of translation into the z-axis
-    for idx, _ in ipairs(cube) do
-        cube[idx][1].x += 1
-        cube[idx][2].x += 1
-        cube[idx][3].x += 1
+    for idx, _ in ipairs(mesh) do
+        mesh[idx][1].x += 1
+        mesh[idx][2].x += 1
+        mesh[idx][3].x += 1
     end
 end
 
@@ -103,47 +91,47 @@ function playdate.update()
     mat_roty:set(1, 3, sin(theta))
     mat_roty:set(3, 1, -sin(theta))
 
-    -- local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
-    local mat_rot = mat_roty
+    local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
+    -- local mat_rot = mat_roty
 
     -- Project the triangles onto the screen.
-    for idx, _ in ipairs(cube_proj) do
-        -- Now let's rotate the cube around the z and x axis!
-        cube_proj[idx][1] = mat_rot:multvec3_pre(cube[idx][1])
-        cube_proj[idx][2] = mat_rot:multvec3_pre(cube[idx][2])
-        cube_proj[idx][3] = mat_rot:multvec3_pre(cube[idx][3])
-        local a = cube_proj[idx][2]:sub(cube_proj[idx][1])
-        local b = cube_proj[idx][3]:sub(cube_proj[idx][1])
+    for idx, _ in ipairs(mesh_proj) do
+        -- Now let's rotate the mesh around the z and x axis!
+        mesh_proj[idx][1] = mat_rot:multvec3_pre(mesh[idx][1])
+        mesh_proj[idx][2] = mat_rot:multvec3_pre(mesh[idx][2])
+        mesh_proj[idx][3] = mat_rot:multvec3_pre(mesh[idx][3])
+        local a = mesh_proj[idx][2]:sub(mesh_proj[idx][1])
+        local b = mesh_proj[idx][3]:sub(mesh_proj[idx][1])
         local n = a:cross(b)
 
         -- Offset into the screen
-        cube_proj[idx][1].z += 10
-        cube_proj[idx][2].z += 10
-        cube_proj[idx][3].z += 10
+        mesh_proj[idx][1].z += 20
+        mesh_proj[idx][2].z += 20
+        mesh_proj[idx][3].z += 20
 
         -- Project onto the screen
-        cube_proj[idx][1] = mat_proj:multvec3_pre(cube_proj[idx][1])
-        cube_proj[idx][2] = mat_proj:multvec3_pre(cube_proj[idx][2])
-        cube_proj[idx][3] = mat_proj:multvec3_pre(cube_proj[idx][3])
+        mesh_proj[idx][1] = mat_proj:multvec3_pre(mesh_proj[idx][1])
+        mesh_proj[idx][2] = mat_proj:multvec3_pre(mesh_proj[idx][2])
+        mesh_proj[idx][3] = mat_proj:multvec3_pre(mesh_proj[idx][3])
 
         -- Illumination
         local d = n:dot(LIGHT_DIR)
 
         if n.z < 0 then
             -- Scale into view
-            cube_proj[idx][1].x += 1 ; cube_proj[idx][1].x *= 0.5 * SCREEN_WIDTH
-            cube_proj[idx][1].y += 1 ; cube_proj[idx][1].y *= 0.5 * SCREEN_HEIGHT
-            cube_proj[idx][2].x += 1 ; cube_proj[idx][2].x *= 0.5 * SCREEN_WIDTH
-            cube_proj[idx][2].y += 1 ; cube_proj[idx][2].y *= 0.5 * SCREEN_HEIGHT
-            cube_proj[idx][3].x += 1 ; cube_proj[idx][3].x *= 0.5 * SCREEN_WIDTH
-            cube_proj[idx][3].y += 1 ; cube_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
+            mesh_proj[idx][1].x += 1 ; mesh_proj[idx][1].x *= 0.5 * SCREEN_WIDTH
+            mesh_proj[idx][1].y += 1 ; mesh_proj[idx][1].y *= 0.5 * SCREEN_HEIGHT
+            mesh_proj[idx][2].x += 1 ; mesh_proj[idx][2].x *= 0.5 * SCREEN_WIDTH
+            mesh_proj[idx][2].y += 1 ; mesh_proj[idx][2].y *= 0.5 * SCREEN_HEIGHT
+            mesh_proj[idx][3].x += 1 ; mesh_proj[idx][3].x *= 0.5 * SCREEN_WIDTH
+            mesh_proj[idx][3].y += 1 ; mesh_proj[idx][3].y *= 0.5 * SCREEN_HEIGHT
 
             -- And draw! (only if the normal of the triangle faces us)
             gfx.setColor(gfx.kColorBlack)
             gfx.drawPolygon(
-                cube_proj[idx][1].x, cube_proj[idx][1].y,
-                cube_proj[idx][2].x, cube_proj[idx][2].y,
-                cube_proj[idx][3].x, cube_proj[idx][3].y
+                mesh_proj[idx][1].x, mesh_proj[idx][1].y,
+                mesh_proj[idx][2].x, mesh_proj[idx][2].y,
+                mesh_proj[idx][3].x, mesh_proj[idx][3].y
             )
             if d > 0 then
                 if d > 0 and d < 0.2 then
@@ -159,12 +147,10 @@ function playdate.update()
                     gfx.setPattern(gfxplib['black'])
                 end
 
-                -- gfx.setPattern({ 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55 })
-                -- gfx.setPattern(PATTERN_VERTICAL_LINES)
                 gfx.fillPolygon(
-                    cube_proj[idx][1].x, cube_proj[idx][1].y,
-                    cube_proj[idx][2].x, cube_proj[idx][2].y,
-                    cube_proj[idx][3].x, cube_proj[idx][3].y
+                    mesh_proj[idx][1].x, mesh_proj[idx][1].y,
+                    mesh_proj[idx][2].x, mesh_proj[idx][2].y,
+                    mesh_proj[idx][3].x, mesh_proj[idx][3].y
                 )
             end
         end
