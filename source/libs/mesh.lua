@@ -7,10 +7,20 @@ class('Triangle').extends()
 class('Mesh').extends()
 class('ObjReader').extends()
 
-function Triangle:init(p1, p2, p3)
+function Triangle:init(p1, p2, p3, normal)
     self.p1 = p1
     self.p2 = p2
     self.p3 = p3
+    self.normal = normal
+end
+
+function Triangle:setp1(p1)
+    self.p1 = p1
+end
+
+
+function Triangle:setnormal(normal)
+    self.normal = normal
 end
 
 function Triangle:vertices()
