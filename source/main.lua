@@ -4,7 +4,6 @@ import "libs/utils"
 import "libs/mesh"
 import "libs/linear"
 import "libs/gfxp"
-local lume = import "libs/lume"
 
 local pd <const>  = playdate
 local gfx <const> = playdate.graphics
@@ -26,7 +25,7 @@ local CAMERA        = Vector3(0, 0, 1)
 -- local LIGHT_DIR     = Vector3(0, 1, 0)  -- Top down
 local LIGHT_DIR     = Vector3(-0.5, 0.8, 0) -- Top down, to the right, to the front
 local DRAWWIREFRAME = true
-local FILENAME      = 'assets/dog_friend_righted.obj'
+local FILENAME      = 'assets/icosahedron.obj'
 
 -- Matrices
 local mat_proj = Mat4x4()
@@ -40,12 +39,10 @@ local mesh_proj = {}
 local theta = 0
 
 function init()
+    local v = Vector3(1, 2, 3)
+
     -- Set up matrices
-    mat_proj:set(1, 1, ASP_RATIO * FOVRAD)
-    mat_proj:set(2, 2, FOVRAD)
-    mat_proj:set(3, 3, Q)
-    mat_proj:set(4, 3, -1 * ZNEAR * Q)
-    mat_proj:set(3, 4, 1)
+    mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
 
     -- Let's read in the file
     mesh = ObjReader.read(FILENAME)
@@ -60,9 +57,9 @@ function init()
         mesh[itri][1].x += 1
         mesh[itri][2].x += 1
         mesh[itri][3].x += 1
-        mesh[itri][1].y += 10
-        mesh[itri][2].y += 10
-        mesh[itri][3].y += 10
+        -- mesh[itri][1].y += 10
+        -- mesh[itri][2].y += 10
+        -- mesh[itri][3].y += 10
     end
 end
 
@@ -73,39 +70,20 @@ function playdate.update()
 
     gfx.clear(gfx.kColorWhite)
 
-    -- Update matrix with latest theta
-    mat_rotx:set(1, 1, 1)
-    mat_rotx:set(2, 2, cos(theta))
-    mat_rotx:set(2, 3, sin(theta))
-    mat_rotx:set(3, 2, -sin(theta))
-    mat_rotx:set(3, 3, cos(theta))
-    mat_rotx:set(4, 4, 1)
-
-    mat_rotz:set(1, 1, cos(theta * 0.5))
-    mat_rotz:set(1, 2, sin(theta * 0.5))
-    mat_rotz:set(2, 1, -sin(theta * 0.5))
-    mat_rotz:set(2, 2, cos(theta * 0.5))
-    mat_rotz:set(3, 3, 1)
-    mat_rotz:set(4, 4, 1)
-
-    mat_roty:set(1, 1, cos(theta))
-    mat_roty:set(2, 2, 1)
-    mat_roty:set(3, 3, cos(theta))
-    mat_roty:set(4, 4, 1)
-    mat_roty:set(1, 3, sin(theta))
-    mat_roty:set(3, 1, -sin(theta))
-
+    -- Generate updated rotation matrices
+    local mat_rotx = Mat4x4.rotation_x_matrix(theta)
+    local mat_roty = Mat4x4.rotation_y_matrix(theta)
+    local mat_rotz = Mat4x4.rotation_z_matrix(theta)
     local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
-    -- local mat_rot = mat_roty
 
     local drawbuffer = {}
 
     -- Project the triangles onto the screen.
     for itri, _ in ipairs(mesh_proj) do
         -- Apply rotation matrix
-        mesh_proj[itri][1] = mat_rot:multvec3_pre(mesh[itri][1])
-        mesh_proj[itri][2] = mat_rot:multvec3_pre(mesh[itri][2])
-        mesh_proj[itri][3] = mat_rot:multvec3_pre(mesh[itri][3])
+        mesh_proj[itri][1] = mat_rot:mult(mesh[itri][1])
+        mesh_proj[itri][2] = mat_rot:mult(mesh[itri][2])
+        mesh_proj[itri][3] = mat_rot:mult(mesh[itri][3])
         -- Compute the normal of this triangle
         local a = mesh_proj[itri][2]:sub(mesh_proj[itri][1])
         local b = mesh_proj[itri][3]:sub(mesh_proj[itri][1])
@@ -116,9 +94,9 @@ function playdate.update()
         mesh_proj[itri][2].z += 20
         mesh_proj[itri][3].z += 20
         -- Compute projection onto the screen
-        mesh_proj[itri][1] = mat_proj:multvec3_pre(mesh_proj[itri][1])
-        mesh_proj[itri][2] = mat_proj:multvec3_pre(mesh_proj[itri][2])
-        mesh_proj[itri][3] = mat_proj:multvec3_pre(mesh_proj[itri][3])
+        mesh_proj[itri][1] = mat_proj:mult(mesh_proj[itri][1])
+        mesh_proj[itri][2] = mat_proj:mult(mesh_proj[itri][2])
+        mesh_proj[itri][3] = mat_proj:mult(mesh_proj[itri][3])
 
         -- Only draw triangles whose normal's z component is facing towards us.
         if n.z < 0 then
@@ -176,32 +154,6 @@ function playdate.update()
     end
 
     pd.drawFPS(5, 5)
-end
-
-function drawtriangles(triangles, normallightdot)
-    for itri, triangle in ipairs(triangles) do
-        -- And draw! (only if the normal of the triangle faces us)
-        if DRAWWIREFRAME then
-            gfx.setColor(gfx.kColorBlack)
-            gfx.drawPolygon(
-                triangles[itri][1].x, triangles[itri][1].y,
-                triangles[itri][2].x, triangles[itri][2].y,
-                triangles[itri][3].x, triangles[itri][3].y
-            )
-        end
-        -- local d = round(lightdirs[itri], 3)
-        if d > 0 then
-            if d > 0   and d < 0.2  then gfx.setPattern(gfxplib['lightgray']) end
-            if d > 0.2 and d < 0.4  then gfx.setPattern(gfxplib['gray-4']) end
-            if d > 0.4 and d < 0.8  then gfx.setPattern(gfxplib['darkgray']) end
-            if d > 0.8 and d <= 1.0 then gfx.setPattern(gfxplib['black']) end
-            gfx.fillPolygon(
-                triangles[itri][1].x, triangles[itri][1].y,
-                triangles[itri][2].x, triangles[itri][2].y,
-                triangles[itri][3].x, triangles[itri][3].y
-            )
-        end
-    end
 end
 
 function playdate.cranked(change, acceleratedChange)

@@ -4,6 +4,26 @@ import "CoreLibs/object"
 -- Linear algebra methods.
 --
 
+local cos <const> = math.cos
+local sin <const> = math.sin
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+-- Using the matrix.lua library
+function vector3(x, y, z)
+    return matrix{{x, y, z}}^'T'
+end
+
+function dot(u, v)
+    local urow, ucol = u:size()
+    local vrow, vcol = v:size()
+    if urow == 1 and vcol == 1 then return u:mul(v) end
+    if urow == 1 and vcol ~= 1 then return u:mul(v:transpose()) end
+    if urow ~= 1 and vcol == 1 then return u:transpose():mul(v) end
+    if urow ~= 1 and vcol ~= 1 then return u:transpose():mul(v:transpose()) end
+end
+
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
@@ -114,29 +134,74 @@ function Mat4x4:tostring()
 end
 
 function Mat4x4:mult(B)
-    M = Mat4x4()
-    for i = 1, 4, 1 do
-        for j = 1, 4, 1 do
-            for k = 1, 4, 1 do
-                M.m[i][j] += self.m[i][k] * B.m[k][j]
+    if B:isa(Vector3) then
+        local u = Vector3(
+            B.x * self.m[1][1] + B.y * self.m[2][1] + B.z * self.m[3][1] + self.m[4][1],
+            B.x * self.m[1][2] + B.y * self.m[2][2] + B.z * self.m[3][2] + self.m[4][2],
+            B.x * self.m[1][3] + B.y * self.m[2][3] + B.z * self.m[3][3] + self.m[4][3]
+        )
+        -- Fourth element, paddding on the Vec3
+        local w = B.x * self.m[1][4] + B.y * self.m[2][4] + B.z * self.m[3][4] + self.m[4][4]
+        if w ~= 0 then
+            u.x = u.x / w
+            u.y = u.y / w
+            u.z = u.z / w
+        end
+        return u
+    elseif B:isa(Mat4x4) then
+        local M = Mat4x4()
+        for i = 1, 4, 1 do
+            for j = 1, 4, 1 do
+                for k = 1, 4, 1 do
+                    M.m[i][j] += self.m[i][k] * B.m[k][j]
+                end
             end
         end
+        return M
     end
-    return M
 end
 
-function Mat4x4:multvec3_pre(v)
-    local u = Vector3(
-        v.x * self.m[1][1] + v.y * self.m[2][1] + v.z * self.m[3][1] + self.m[4][1],
-        v.x * self.m[1][2] + v.y * self.m[2][2] + v.z * self.m[3][2] + self.m[4][2],
-        v.x * self.m[1][3] + v.y * self.m[2][3] + v.z * self.m[3][3] + self.m[4][3]
-    )
-    -- Fourth element, paddding on the Vec3
-    local w = v.x * self.m[1][4] + v.y * self.m[2][4] + v.z * self.m[3][4] + self.m[4][4]
-    if w ~= 0 then
-        u.x = u.x / w
-        u.y = u.y / w
-        u.z = u.z / w
-    end
-    return u
+function Mat4x4.rotation_x_matrix(theta)
+    local m = Mat4x4()
+    m:set(1, 1, 1)
+    m:set(2, 2, cos(theta))
+    m:set(2, 3, sin(theta))
+    m:set(3, 2, -sin(theta))
+    m:set(3, 3, cos(theta))
+    m:set(4, 4, 1)
+    return m
 end
+
+function Mat4x4.rotation_y_matrix(theta)
+    local m = Mat4x4()
+    m:set(1, 1, cos(theta))
+    m:set(2, 2, 1)
+    m:set(3, 3, cos(theta))
+    m:set(4, 4, 1)
+    m:set(1, 3, sin(theta))
+    m:set(3, 1, -sin(theta))
+    return m
+end
+
+function Mat4x4.rotation_z_matrix(theta)
+    local m = Mat4x4()
+    m:set(1, 1, cos(theta))
+    m:set(1, 2, sin(theta))
+    m:set(2, 1, -sin(theta))
+    m:set(2, 2, cos(theta))
+    m:set(3, 3, 1)
+    m:set(4, 4, 1)
+    return m
+end
+
+function Mat4x4.projection_matrix(asp_ratio, fovrad, znear, zfar)
+    local m = Mat4x4()
+    local q = zfar / (zfar - znear)
+    m:set(1, 1, asp_ratio * fovrad)
+    m:set(2, 2, fovrad)
+    m:set(3, 3, q)
+    m:set(4, 3, -1 * znear * q)
+    m:set(3, 4, 1)
+    return m
+end
+
