@@ -25,13 +25,10 @@ local CAMERA        = Vector3(0, 0, 1)
 -- local LIGHT_DIR     = Vector3(0, 1, 0)  -- Top down
 local LIGHT_DIR     = Vector3(-0.5, 0.8, 0) -- Top down, to the right, to the front
 local DRAWWIREFRAME = true
-local FILENAME      = 'assets/icosahedron.obj'
+local FILENAME      = 'assets/dog_friend.obj'
 
 -- Matrices
-local mat_proj = Mat4x4()
-local mat_rotx = Mat4x4()
-local mat_rotz = Mat4x4()
-local mat_roty = Mat4x4()
+local mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
 
 -- Variables
 local mesh = {}
@@ -39,11 +36,6 @@ local mesh_proj = {}
 local theta = 0
 
 function init()
-    local v = Vector3(1, 2, 3)
-
-    -- Set up matrices
-    mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
-
     -- Let's read in the file
     mesh = ObjReader.read(FILENAME)
 
@@ -53,13 +45,11 @@ function init()
     end
 
     -- First, let's add a bit of translation into the z-axis
+    local mtrans = Mat4x4.translation_matrix(1, 5, 0)
     for itri, _ in ipairs(mesh) do
-        mesh[itri][1].x += 1
-        mesh[itri][2].x += 1
-        mesh[itri][3].x += 1
-        -- mesh[itri][1].y += 10
-        -- mesh[itri][2].y += 10
-        -- mesh[itri][3].y += 10
+        mesh[itri][1] = mtrans:mult(mesh[itri][1])
+        mesh[itri][2] = mtrans:mult(mesh[itri][2])
+        mesh[itri][3] = mtrans:mult(mesh[itri][3])
     end
 end
 
@@ -74,25 +64,27 @@ function playdate.update()
     local mat_rotx = Mat4x4.rotation_x_matrix(theta)
     local mat_roty = Mat4x4.rotation_y_matrix(theta)
     local mat_rotz = Mat4x4.rotation_z_matrix(theta)
+    local mat_trans = Mat4x4.translation_matrix(0, 0, 20)
     local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
 
     local drawbuffer = {}
 
     -- Project the triangles onto the screen.
     for itri, _ in ipairs(mesh_proj) do
-        -- Apply rotation matrix
+        -- Apply transformation matrix (rotation & translation)
         mesh_proj[itri][1] = mat_rot:mult(mesh[itri][1])
         mesh_proj[itri][2] = mat_rot:mult(mesh[itri][2])
         mesh_proj[itri][3] = mat_rot:mult(mesh[itri][3])
-        -- Compute the normal of this triangle
+        -- Apply translation
+        mesh_proj[itri][1] = mat_trans:mult(mesh_proj[itri][1])
+        mesh_proj[itri][2] = mat_trans:mult(mesh_proj[itri][2])
+        mesh_proj[itri][3] = mat_trans:mult(mesh_proj[itri][3])
+       -- Compute the normal of this triangle
         local a = mesh_proj[itri][2]:sub(mesh_proj[itri][1])
         local b = mesh_proj[itri][3]:sub(mesh_proj[itri][1])
         local n = a:cross(b)
         local d = n:dot(LIGHT_DIR)
-        -- Offset triangle into the screen
-        mesh_proj[itri][1].z += 20
-        mesh_proj[itri][2].z += 20
-        mesh_proj[itri][3].z += 20
+
         -- Compute projection onto the screen
         mesh_proj[itri][1] = mat_proj:mult(mesh_proj[itri][1])
         mesh_proj[itri][2] = mat_proj:mult(mesh_proj[itri][2])
@@ -121,14 +113,6 @@ function playdate.update()
 
     -- And draw! (only if the normal of the triangle faces us)
     for _, triangle in ipairs(drawbuffer) do
-        if DRAWWIREFRAME then
-            gfx.setColor(gfx.kColorBlack)
-            gfx.drawPolygon(
-                triangle.verts[1].x, triangle.verts[1].y,
-                triangle.verts[2].x, triangle.verts[2].y,
-                triangle.verts[3].x, triangle.verts[3].y
-            )
-        end
         local d = triangle.lightnormaldot
         -- if d > 0 then
         if d < 0 then
@@ -151,6 +135,14 @@ function playdate.update()
             triangle.verts[2].x, triangle.verts[2].y,
             triangle.verts[3].x, triangle.verts[3].y
         )
+        if DRAWWIREFRAME then
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawPolygon(
+                triangle.verts[1].x, triangle.verts[1].y,
+                triangle.verts[2].x, triangle.verts[2].y,
+                triangle.verts[3].x, triangle.verts[3].y
+            )
+        end
     end
 
     pd.drawFPS(5, 5)

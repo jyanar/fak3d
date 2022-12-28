@@ -133,6 +133,16 @@ function Mat4x4:tostring()
     return str
 end
 
+function Mat4x4:add(B)
+    local C = Mat4x4()
+    for i = 1, 4 do
+        for j = 1, 4 do
+            C.m[i][j] = self.m[i][j] + B.m[i][j]
+        end
+    end
+    return C
+end
+
 function Mat4x4:mult(B)
     if B:isa(Vector3) then
         local u = Vector3(
@@ -159,6 +169,26 @@ function Mat4x4:mult(B)
         end
         return M
     end
+end
+
+function Mat4x4.identity_matrix()
+    local m = Mat4x4()
+    m:set(1, 1, 1)
+    m:set(2, 2, 1)
+    m:set(3, 3, 1)
+    m:set(4, 4, 1)
+    return m
+end
+
+function Mat4x4.translation_matrix(dx, dy, dz)
+    local m = Mat4x4.identity_matrix()
+    -- m:set(1, 4, dx)
+    -- m:set(2, 4, dy)
+    -- m:set(3, 4, dz)
+    m:set(4, 1, dx)
+    m:set(4, 2, dy)
+    m:set(4, 3, dz)
+    return m
 end
 
 function Mat4x4.rotation_x_matrix(theta)
@@ -203,5 +233,17 @@ function Mat4x4.projection_matrix(asp_ratio, fovrad, znear, zfar)
     m:set(4, 3, -1 * znear * q)
     m:set(3, 4, 1)
     return m
+end
+
+function Mat4x4.point_at_matrix(pos, target, up)
+    local m = Mat4x4()
+    local newforward = target:sub(pos):normalize()
+
+    -- New up direction
+    local a = newforward:mult(up:dot(newforward))
+    local newup = up:sub(a):normalize()
+
+    -- New right direction
+    local newright = newup:cross(newforward)
 end
 
