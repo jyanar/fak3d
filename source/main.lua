@@ -19,7 +19,6 @@ local ZNEAR         = 1
 local Q             = ZFAR / (ZFAR - ZNEAR)
 local SCREEN_WIDTH  = 400
 local SCREEN_HEIGHT = 200
-local CAMERA        = Vector3(0, 0, 1)
 -- local LIGHT_DIR     = Vector3(0, 0, -1) -- Light faces us
 -- local LIGHT_DIR     = Vector3(0, 0, 1)  -- Light faces away from us
 -- local LIGHT_DIR     = Vector3(0, 1, 0)  -- Top down
@@ -34,6 +33,9 @@ local mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
 local mesh = {}
 local mesh_proj = {}
 local theta = 0
+local camera  = Vector3(0, 0, 0)
+local up      = Vector3(0, 1, 0)
+local lookdir = Vector3(0, 0, 1)
 
 function init()
     -- Let's read in the file
@@ -104,7 +106,7 @@ function playdate.update()
         end
     end
 
-    -- -- sort the triangles based on z-depth
+    -- sort the triangles based on z-depth
     table.sort(drawbuffer, function(a, b)
         local z1 = (a.verts[1].z + a.verts[2].z + a.verts[3].z)/3
         local z2 = (b.verts[1].z + b.verts[2].z + b.verts[3].z)/3
@@ -114,7 +116,6 @@ function playdate.update()
     -- And draw! (only if the normal of the triangle faces us)
     for _, triangle in ipairs(drawbuffer) do
         local d = triangle.lightnormaldot
-        -- if d > 0 then
         if d < 0 then
             gfx.setPattern(gfxplib['white'])
         end
@@ -165,4 +166,12 @@ function playdate.downButtonDown()
     mat_proj:set(1, 1, ASP_RATIO * FOVRAD)
     mat_proj:set(2, 2, FOVRAD)
 end
+
+-- function playdate.upButtonDown()
+--     camera.y -= 10
+-- end
+
+-- function playdate.downButtonDown()
+--     camera.y += 10
+-- end
 

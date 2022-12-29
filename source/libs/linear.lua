@@ -30,8 +30,8 @@ end
 class('Vector2').extends()
 
 function Vector2:init(x, y)
-    self.x = x
-    self.y = y
+    self.x = x or 0
+    self.y = y or 0
 end
 
 function Vector2:tostring()
@@ -65,9 +65,9 @@ end
 class('Vector3').extends()
 
 function Vector3:init(x, y, z)
-    self.x = x
-    self.y = y
-    self.z = z
+    self.x = x or 0
+    self.y = y or 0
+    self.z = z or 0
 end
 
 function Vector3:tostring()
@@ -236,14 +236,33 @@ function Mat4x4.projection_matrix(asp_ratio, fovrad, znear, zfar)
 end
 
 function Mat4x4.point_at_matrix(pos, target, up)
-    local m = Mat4x4()
-    local newforward = target:sub(pos):normalize()
-
     -- New up direction
+    local newforward = target:sub(pos):normalize()
     local a = newforward:mult(up:dot(newforward))
     local newup = up:sub(a):normalize()
 
     -- New right direction
     local newright = newup:cross(newforward)
+
+    local m = Mat4x4()
+    m:set(1,1, newright.x)   ; m:set(1,2, newright.y)   ; m:set(1,3, newright.z)
+    m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(1,3, newup.z)
+    m:set(3,1, newforward.x) ; m:set(3,2, newforward.y) ; m:set(3,3, newforward.z)
+    m:set(4,1, pos.x)        ; m:set(4,2, pos.y)        ; m:set(4,3, pos.z)
+    m:set(4,4, 1)
+    return m
 end
+
+function Mat4x4.quick_inverse(m)
+    local M = Mat4x4()
+    M.m[1][1] = m.m[1][1] ; M.m[1][2] = m.m[2][1] ; M.m[1][3] = m.m[3][1] ; M.m[1][4] = 0
+    M.m[2][1] = m.m[1][2] ; M.m[2][2] = m.m[2][2] ; M.m[2][3] = m.m[3][2] ; M.m[2][4] = 0
+    M.m[3][1] = m.m[1][3] ; M.m[3][2] = m.m[2][3] ; M.m[3][3] = m.m[3][3] ; M.m[3][4] = 0
+    M.m[4][1] = -(m.m[4][1] * M.m[1][1] + m.m[4][2] * M.m[2][1] + m.m[4][3] * M.m[3][1])
+    M.m[4][2] = -(m.m[4][1] * M.m[1][2] + m.m[4][2] * M.m[2][2] + m.m[4][3] * M.m[3][2])
+    M.m[4][3] = -(m.m[4][1] * M.m[1][3] + m.m[4][2] * M.m[2][3] + m.m[4][3] * M.m[3][3])
+    M.m[4][4] = 1
+    return M
+end
+
 
