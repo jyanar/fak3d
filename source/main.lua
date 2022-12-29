@@ -24,97 +24,27 @@ local SCREEN_HEIGHT = 200
 -- local LIGHT_DIR     = Vector3(0, 1, 0)  -- Top down
 local LIGHT_DIR     = Vector3(-0.5, 0.8, 0) -- Top down, to the right, to the front
 local DRAWWIREFRAME = true
-local FILENAME      = 'assets/dog_friend.obj'
+local FILENAME      = 'assets/icosahedron.obj'
 
 -- Matrices
 local mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
+local mat_addonexy, mat_scale = Mat4x4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 -- Variables
 local mesh = {}
 local mesh_proj = {}
+local mesh_view = {}
 local theta = 0
-local camera  = Vector3(0, 0, 0)
-local up      = Vector3(0, 1, 0)
-local lookdir = Vector3(0, 0, 1)
+local camera = Vector3(0, 0, -1)
+local yaw = 0
+local vec_lookdir = Vector3(0, 0, 1)
 
-function init()
-    -- Let's read in the file
-    mesh = ObjReader.read(FILENAME)
-
-    -- Set up mesh projection
-    for i = 1, #mesh, 1 do
-        table.insert(mesh_proj, {})
-    end
-
-    -- First, let's add a bit of translation into the z-axis
-    local mtrans = Mat4x4.translation_matrix(1, 5, 0)
-    for itri, _ in ipairs(mesh) do
-        mesh[itri][1] = mtrans:mult(mesh[itri][1])
-        mesh[itri][2] = mtrans:mult(mesh[itri][2])
-        mesh[itri][3] = mtrans:mult(mesh[itri][3])
-    end
+local function apply(matrix, triangle)
+    return {matrix:mult(triangle[1]), matrix:mult(triangle[2]), matrix:mult(triangle[3])}
 end
 
-
-init()
-
-function playdate.update()
-
-    gfx.clear(gfx.kColorWhite)
-
-    -- Generate updated rotation matrices
-    local mat_rotx = Mat4x4.rotation_x_matrix(theta)
-    local mat_roty = Mat4x4.rotation_y_matrix(theta)
-    local mat_rotz = Mat4x4.rotation_z_matrix(theta)
-    local mat_trans = Mat4x4.translation_matrix(0, 0, 20)
-    local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
-
-    local drawbuffer = {}
-
-    -- Project the triangles onto the screen.
-    for itri, _ in ipairs(mesh_proj) do
-        -- Apply transformation matrix (rotation & translation)
-        mesh_proj[itri][1] = mat_rot:mult(mesh[itri][1])
-        mesh_proj[itri][2] = mat_rot:mult(mesh[itri][2])
-        mesh_proj[itri][3] = mat_rot:mult(mesh[itri][3])
-        -- Apply translation
-        mesh_proj[itri][1] = mat_trans:mult(mesh_proj[itri][1])
-        mesh_proj[itri][2] = mat_trans:mult(mesh_proj[itri][2])
-        mesh_proj[itri][3] = mat_trans:mult(mesh_proj[itri][3])
-       -- Compute the normal of this triangle
-        local a = mesh_proj[itri][2]:sub(mesh_proj[itri][1])
-        local b = mesh_proj[itri][3]:sub(mesh_proj[itri][1])
-        local n = a:cross(b)
-        local d = n:dot(LIGHT_DIR)
-
-        -- Compute projection onto the screen
-        mesh_proj[itri][1] = mat_proj:mult(mesh_proj[itri][1])
-        mesh_proj[itri][2] = mat_proj:mult(mesh_proj[itri][2])
-        mesh_proj[itri][3] = mat_proj:mult(mesh_proj[itri][3])
-
-        -- Only draw triangles whose normal's z component is facing towards us.
-        if n.z < 0 then
-            -- Scale into view
-            mesh_proj[itri][1].x += 1 ; mesh_proj[itri][1].x *= 0.5 * SCREEN_WIDTH
-            mesh_proj[itri][1].y += 1 ; mesh_proj[itri][1].y *= 0.5 * SCREEN_HEIGHT
-            mesh_proj[itri][2].x += 1 ; mesh_proj[itri][2].x *= 0.5 * SCREEN_WIDTH
-            mesh_proj[itri][2].y += 1 ; mesh_proj[itri][2].y *= 0.5 * SCREEN_HEIGHT
-            mesh_proj[itri][3].x += 1 ; mesh_proj[itri][3].x *= 0.5 * SCREEN_WIDTH
-            mesh_proj[itri][3].y += 1 ; mesh_proj[itri][3].y *= 0.5 * SCREEN_HEIGHT
-
-            table.insert(drawbuffer, {verts = mesh_proj[itri], lightnormaldot = d})
-        end
-    end
-
-    -- sort the triangles based on z-depth
-    table.sort(drawbuffer, function(a, b)
-        local z1 = (a.verts[1].z + a.verts[2].z + a.verts[3].z)/3
-        local z2 = (b.verts[1].z + b.verts[2].z + b.verts[3].z)/3
-        return z1 > z2
-    end)
-
-    -- And draw! (only if the normal of the triangle faces us)
-    for _, triangle in ipairs(drawbuffer) do
+local function drawtriangles(buffer, wireframe)
+    for _, triangle in ipairs(buffer) do
         local d = triangle.lightnormaldot
         if d < 0 then
             gfx.setPattern(gfxplib['white'])
@@ -136,7 +66,7 @@ function playdate.update()
             triangle.verts[2].x, triangle.verts[2].y,
             triangle.verts[3].x, triangle.verts[3].y
         )
-        if DRAWWIREFRAME then
+        if wireframe then
             gfx.setColor(gfx.kColorBlack)
             gfx.drawPolygon(
                 triangle.verts[1].x, triangle.verts[1].y,
@@ -145,6 +75,101 @@ function playdate.update()
             )
         end
     end
+end
+
+local function init()
+    -- Let's read in the file
+    mesh = ObjReader.read(FILENAME)
+
+    -- Set up projection and view meshes
+    for i = 1, #mesh, 1 do
+        table.insert(mesh_proj, {})
+        table.insert(mesh_view, {})
+    end
+
+    -- First, let's add a bit of translation into the z-axis
+    local mtrans = Mat4x4.translation_matrix(1, 0, 0)
+    for itri, _ in ipairs(mesh) do
+        mesh[itri][1] = mtrans:mult(mesh[itri][1])
+        mesh[itri][2] = mtrans:mult(mesh[itri][2])
+        mesh[itri][3] = mtrans:mult(mesh[itri][3])
+    end
+end
+
+init()
+
+function playdate.update()
+
+    gfx.clear(gfx.kColorWhite)
+
+    -- User input
+    if pd.buttonIsPressed(pd.kButtonUp) then
+        camera.y -= 1
+        print(camera.z)
+    end
+    if pd.buttonIsPressed(pd.kButtonDown) then
+        camera.y += 1
+        print(camera.z)
+    end
+
+    -- Generate updated rotation matrices
+    local mat_rotx = Mat4x4.rotation_x_matrix(theta)
+    local mat_roty = Mat4x4.rotation_y_matrix(theta)
+    local mat_rotz = Mat4x4.rotation_z_matrix(theta)
+    local mat_move = Mat4x4.translation_matrix(0, 0, 10)
+    local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
+
+    -- Construct "point at" matrix for camera
+    local vec_up = Vector3(0, 1, 0)
+    local vec_target = Vector3(0, 0, 1)
+    local mat_camrot = Mat4x4.rotation_y_matrix(yaw)
+    vec_lookdir = mat_camrot:mult(vec_target)
+    vec_target = camera:add(vec_lookdir)
+    local mat_cam = Mat4x4.point_at_matrix(camera, vec_target, vec_up)
+    local mat_view = Mat4x4.quick_inverse(mat_cam)
+
+    local drawbuffer = {}
+
+    -- Project the triangles onto the screen.
+    for itri, _ in ipairs(mesh_proj) do
+        -- Apply rotation and translation transforms
+        mesh_proj[itri] = apply(mat_rot, mesh[itri])
+        mesh_proj[itri] = apply(mat_move, mesh_proj[itri])
+
+        -- Compute the normal of this triangle
+        local a = mesh_proj[itri][2]:sub(mesh_proj[itri][1])
+        local b = mesh_proj[itri][3]:sub(mesh_proj[itri][1])
+        local n = a:cross(b)
+        local d = n:dot(LIGHT_DIR)
+
+        -- Convert from world space to view space
+        mesh_view[itri] = apply(mat_view, mesh_proj[itri])
+
+        -- Compute projection, 3D -> 2D
+        mesh_view[itri] = apply(mat_proj, mesh_view[itri])
+
+        -- Get ray from triangle to camera
+        local vec_camray = mesh_proj[itri][1]:sub(camera)
+
+        -- Only draw triangles whose normal's z component is facing towards us.
+        -- if n.z < 0 then
+        if vec_camray:dot(n) then
+            -- Scale projection onto screen
+            mesh_view[itri] = apply(mat_addonexy, mesh_view[itri])
+            mesh_view[itri] = apply(mat_scale, mesh_view[itri])
+            table.insert(drawbuffer, {verts = mesh_view[itri], lightnormaldot = d})
+        end
+    end
+
+    -- sort the triangles based on z-depth
+    table.sort(drawbuffer, function(a, b)
+        local z1 = (a.verts[1].z + a.verts[2].z + a.verts[3].z)/3
+        local z2 = (b.verts[1].z + b.verts[2].z + b.verts[3].z)/3
+        return z1 > z2
+    end)
+
+    -- And draw! (only if the normal of the triangle faces us)
+    drawtriangles(drawbuffer, DRAWWIREFRAME)
 
     pd.drawFPS(5, 5)
 end
@@ -153,25 +178,4 @@ function playdate.cranked(change, acceleratedChange)
     theta += change/180
 end
 
-function playdate.upButtonDown()
-    FOV += 1
-    FOVRAD = 1 / math.tan(FOV * 0.5 / 180 * math.pi)
-    mat_proj:set(1, 1, ASP_RATIO * FOVRAD)
-    mat_proj:set(2, 2, FOVRAD)
-end
-
-function playdate.downButtonDown()
-    FOV -= 1
-    FOVRAD = 1 / math.tan(FOV * 0.5 / 180 * math.pi)
-    mat_proj:set(1, 1, ASP_RATIO * FOVRAD)
-    mat_proj:set(2, 2, FOVRAD)
-end
-
--- function playdate.upButtonDown()
---     camera.y -= 10
--- end
-
--- function playdate.downButtonDown()
---     camera.y += 10
--- end
 

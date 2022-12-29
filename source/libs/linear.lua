@@ -47,6 +47,15 @@ function Vector2:normalize()
     return Vector2(self.x / mag, self.y / mag)
 end
 
+function Vector2:add(u)
+    if u:isa(Vector2) then
+        print('fdsafdsafdsaf')
+        return Vector2(self.x + u.x, self.y + u.y)
+    else
+        return Vector2(self.x + u, self.y + u)
+    end
+end
+
 function Vector2:mult(scalar)
     return Vector2(self.x * scalar, self.y * scalar)
 end
@@ -91,8 +100,18 @@ function Vector3:dot(vec)
     return self.x * vec.x + self.y * vec.y + self.z * vec.z
 end
 
-function Vector3:sub(vec)
-    return Vector3(self.x - vec.x, self.y - vec.y, self.z - vec.z)
+function Vector3:add(v)
+    if type( v ) == 'number' then
+        return Vector3(self.x + v, self.y + v)
+    elseif type( v ) == 'table' then
+        return Vector3(self.x + v.x, self.y + v.y)
+    else
+        error('vector3:add, invalid type!')
+    end
+end
+
+function Vector3:sub(v)
+    return Vector3(self.x - v.x, self.y - v.y, self.z - v.z)
 end
 
 function Vector3:cross(vec)
@@ -233,6 +252,16 @@ function Mat4x4.projection_matrix(asp_ratio, fovrad, znear, zfar)
     m:set(4, 3, -1 * znear * q)
     m:set(3, 4, 1)
     return m
+end
+
+function Mat4x4.scaling_matrices(screen_width, screen_height)
+    local m = Mat4x4.identity_matrix()
+    m:set(4, 1, 1)
+    m:set(4, 2, 1)
+    local n = Mat4x4.identity_matrix()
+    n:set(1, 1, 0.5 * screen_width)
+    n:set(2, 2, 0.5 * screen_height)
+    return m, n
 end
 
 function Mat4x4.point_at_matrix(pos, target, up)
