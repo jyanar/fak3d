@@ -27,6 +27,8 @@ local DRAWWIREFRAME = true
 local FILENAME      = 'assets/icosahedron.obj'
 
 -- Matrices
+local mat_init = Mat4x4.translation_matrix(0, 0, 1)
+local mat_move = Mat4x4.translation_matrix(0, 0, 0)
 local mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
 local mat_addonexy, mat_scale = Mat4x4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -35,7 +37,7 @@ local mesh = {}
 local mesh_proj = {}
 local mesh_view = {}
 local theta = 0
-local camera = Vector3(0, 0, -1)
+local camera = Vector3(0, 0, -5)
 local yaw = 0
 local vec_lookdir = Vector3(0, 0, 1)
 
@@ -88,11 +90,8 @@ local function init()
     end
 
     -- First, let's add a bit of translation into the z-axis
-    local mtrans = Mat4x4.translation_matrix(1, 0, 0)
     for itri, _ in ipairs(mesh) do
-        mesh[itri][1] = mtrans:mult(mesh[itri][1])
-        mesh[itri][2] = mtrans:mult(mesh[itri][2])
-        mesh[itri][3] = mtrans:mult(mesh[itri][3])
+        mesh[itri] = apply(mat_init, mesh[itri])
     end
 end
 
@@ -100,24 +99,20 @@ init()
 
 function playdate.update()
 
-    gfx.clear(gfx.kColorWhite)
+    -- gfx.clear(gfx.kColorWhite)
 
     -- User input
-    if pd.buttonIsPressed(pd.kButtonUp) then
-        camera.y -= 1
-        print(camera.z)
-    end
-    if pd.buttonIsPressed(pd.kButtonDown) then
-        camera.y += 1
-        print(camera.z)
-    end
+    if pd.buttonIsPressed(pd.kButtonUp)    then camera.y -= 1 end
+    if pd.buttonIsPressed(pd.kButtonDown)  then camera.y += 1 end
+    if pd.buttonIsPressed(pd.kButtonLeft)  then camera.x -= 1 end
+    if pd.buttonIsPressed(pd.kButtonRight) then camera.x += 1 end
 
     -- Generate updated rotation matrices
     local mat_rotx = Mat4x4.rotation_x_matrix(theta)
     local mat_roty = Mat4x4.rotation_y_matrix(theta)
     local mat_rotz = Mat4x4.rotation_z_matrix(theta)
-    local mat_move = Mat4x4.translation_matrix(0, 0, 10)
-    local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
+    local mat_rot = mat_roty--:mult(mat_rotz)
+    -- local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
 
     -- Construct "point at" matrix for camera
     local vec_up = Vector3(0, 1, 0)
@@ -130,7 +125,7 @@ function playdate.update()
 
     local drawbuffer = {}
 
-    -- Project the triangles onto the screen.
+    -- project triangles onto 2D plane
     for itri, _ in ipairs(mesh_proj) do
         -- Apply rotation and translation transforms
         mesh_proj[itri] = apply(mat_rot, mesh[itri])
@@ -151,8 +146,8 @@ function playdate.update()
         -- Get ray from triangle to camera
         local vec_camray = mesh_proj[itri][1]:sub(camera)
 
-        -- Only draw triangles whose normal's z component is facing towards us.
-        -- if n.z < 0 then
+        -- only add triangles to the draw buffer whose normal
+        -- z component is facing the camera.
         if vec_camray:dot(n) then
             -- Scale projection onto screen
             mesh_view[itri] = apply(mat_addonexy, mesh_view[itri])
