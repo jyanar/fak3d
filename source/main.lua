@@ -19,19 +19,19 @@ local ZNEAR         = 1
 local Q             = ZFAR / (ZFAR - ZNEAR)
 local SCREEN_WIDTH  = 400
 local SCREEN_HEIGHT = 200
--- local LIGHT_DIR     = Vector3(0, 0, -1) -- Light faces us
--- local LIGHT_DIR     = Vector3(0, 0, 1)  -- Light faces away from us
--- local LIGHT_DIR     = Vector3(0, 1, 0)  -- Top down
-local LIGHT_DIR     = Vector3(-0.5, 0.8, 0) -- Top down, to the right, to the front
+-- local LIGHT_DIR     = vec3(0, 0, -1) -- Light faces us
+-- local LIGHT_DIR     = vec3(0, 0, 1)  -- Light faces away from us
+-- local LIGHT_DIR     = vec3(0, 1, 0)  -- Top down
+local LIGHT_DIR     = vec3(-0.5, 0.8, 0) -- Top down, to the right, to the front
 local DRAWWIREFRAME = true
 local FILENAME      = 'assets/icosahedron.obj'
 
 -- Matrices
 local matrix_transform = {}
-local mat_init = Mat4x4.translation_matrix(0, 0, 0)
-local mat_move = Mat4x4.translation_matrix(0, 0, 0)
-local mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
-local mat_addonexy, mat_scale = Mat4x4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
+local mat_init = mat4.translation_matrix(0, 0, 0)
+local mat_move = mat4.translation_matrix(0, 0, 0)
+local mat_proj = mat4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
+local mat_addonexy, mat_scale = mat4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 -- Variables
 local clear_screen = true
@@ -40,8 +40,8 @@ local mesh_proj = {}
 local mesh_view = {}
 local yaw = 0
 local theta = 0
-local camera = Vector3(0, 0, -10)
-local vec_lookdir = Vector3(0, 0, 1)
+local camera = vec3(0, 0, -10)
+local vec_lookdir = vec3(0, 0, 1)
 
 local function apply(matrix, triangle)
     return {matrix:mult(triangle[1]), matrix:mult(triangle[2]), matrix:mult(triangle[3])}
@@ -106,10 +106,12 @@ function playdate.update()
     end
 
     -- User input
-    if pd.buttonIsPressed(pd.kButtonUp)    then camera.z += 1 end
-    if pd.buttonIsPressed(pd.kButtonDown)  then camera.z -= 1 end
-    if pd.buttonIsPressed(pd.kButtonLeft)  then camera.x += 1 end
-    if pd.buttonIsPressed(pd.kButtonRight) then camera.x -= 1 end
+    if pd.buttonIsPressed(pd.kButtonUp)    then camera.z += 0.3 end
+    if pd.buttonIsPressed(pd.kButtonDown)  then camera.z -= 0.3 end
+    -- if pd.buttonIsPressed(pd.kButtonLeft)  then camera.x += 0.3 end
+    -- if pd.buttonIsPressed(pd.kButtonRight) then camera.x -= 0.3 end
+    if pd.buttonIsPressed(pd.kButtonLeft)  then yaw -= 1 end
+    if pd.buttonIsPressed(pd.kButtonRight) then yaw += 1 end
     if pd.buttonJustPressed(pd.kButtonA) then
         if clear_screen == true then
             clear_screen = false
@@ -118,34 +120,34 @@ function playdate.update()
         end
     end
     if pd.buttonJustPressed(pd.kButtonB) then
-        -- mat_move = Mat4x4.translation_matrix(0, 0, 3)
+        -- mat_move = mat4.translation_matrix(0, 0, 3)
         mat_move:set(4, 3, mat_move.m[3][4] + 1)
     end
 
     -- Generate transformation matrices
-    matrix_transform = Mat4x4.identity_matrix()
+    matrix_transform = mat4.identity_matrix()
     matrix_transform = matrix_transform:mult(
-        Mat4x4.rotation_z_matrix(theta):mult(
-        Mat4x4.translation_matrix(0, 0, 3):mult(
-        Mat4x4.rotation_y_matrix(theta/2):mult(
-        Mat4x4.translation_matrix(0, 0, -3)
+        mat4.rotation_z_matrix(theta):mult(
+        mat4.translation_matrix(0, 0, 3):mult(
+        mat4.rotation_y_matrix(theta/2):mult(
+        mat4.translation_matrix(0, 0, -3)
     ))))
 
     -- Construct "point at" matrix for camera
-    local vec_up = Vector3(0, 1, 0)
-    local vec_target = Vector3(0, 0, 1)
-    local mat_camrot = Mat4x4.rotation_y_matrix(yaw)
+    local vec_up = vec3(0, 1, 0)
+    local vec_target = vec3(0, 0, 1)
+    local mat_camrot = mat4.rotation_y_matrix(yaw)
     vec_lookdir = mat_camrot:mult(vec_target)
     vec_target = camera:add(vec_lookdir)
-    local mat_cam = Mat4x4.point_at_matrix(camera, vec_target, vec_up)
-    local mat_view = Mat4x4.quick_inverse(mat_cam)
+    local mat_cam = mat4.point_at_matrix(camera, vec_target, vec_up)
+    local mat_view = mat4.quick_inverse(mat_cam)
 
     local drawbuffer = {}
 
     -- project triangles onto 2D plane
     for itri, _ in ipairs(mesh_proj) do
         -- Copy triangle
-        mesh_proj[itri] = apply(Mat4x4.identity_matrix(), mesh[itri])
+        mesh_proj[itri] = apply(mat4.identity_matrix(), mesh[itri])
 
         -- Apply all transforms
         mesh_proj[itri] = apply(matrix_transform, mesh_proj[itri])
