@@ -27,18 +27,20 @@ local DRAWWIREFRAME = true
 local FILENAME      = 'assets/icosahedron.obj'
 
 -- Matrices
-local mat_init = Mat4x4.translation_matrix(0, 0, 1)
+local matrix_transform = {}
+local mat_init = Mat4x4.translation_matrix(0, 0, 0)
 local mat_move = Mat4x4.translation_matrix(0, 0, 0)
 local mat_proj = Mat4x4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
 local mat_addonexy, mat_scale = Mat4x4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 -- Variables
+local clear_screen = true
 local mesh = {}
 local mesh_proj = {}
 local mesh_view = {}
-local theta = 0
-local camera = Vector3(0, 0, -5)
 local yaw = 0
+local theta = 0
+local camera = Vector3(0, 0, -10)
 local vec_lookdir = Vector3(0, 0, 1)
 
 local function apply(matrix, triangle)
@@ -99,20 +101,35 @@ init()
 
 function playdate.update()
 
-    -- gfx.clear(gfx.kColorWhite)
+    if clear_screen then
+        gfx.clear(gfx.kColorWhite)
+    end
 
     -- User input
-    if pd.buttonIsPressed(pd.kButtonUp)    then camera.y -= 1 end
-    if pd.buttonIsPressed(pd.kButtonDown)  then camera.y += 1 end
-    if pd.buttonIsPressed(pd.kButtonLeft)  then camera.x -= 1 end
-    if pd.buttonIsPressed(pd.kButtonRight) then camera.x += 1 end
+    if pd.buttonIsPressed(pd.kButtonUp)    then camera.z += 1 end
+    if pd.buttonIsPressed(pd.kButtonDown)  then camera.z -= 1 end
+    if pd.buttonIsPressed(pd.kButtonLeft)  then camera.x += 1 end
+    if pd.buttonIsPressed(pd.kButtonRight) then camera.x -= 1 end
+    if pd.buttonJustPressed(pd.kButtonA) then
+        if clear_screen == true then
+            clear_screen = false
+        elseif clear_screen == false then
+            clear_screen = true
+        end
+    end
+    if pd.buttonJustPressed(pd.kButtonB) then
+        -- mat_move = Mat4x4.translation_matrix(0, 0, 3)
+        mat_move:set(4, 3, mat_move.m[3][4] + 1)
+    end
 
-    -- Generate updated rotation matrices
-    local mat_rotx = Mat4x4.rotation_x_matrix(theta)
-    local mat_roty = Mat4x4.rotation_y_matrix(theta)
-    local mat_rotz = Mat4x4.rotation_z_matrix(theta)
-    local mat_rot = mat_roty--:mult(mat_rotz)
-    -- local mat_rot = mat_rotz:mult(mat_roty:mult(mat_rotx))
+    -- Generate transformation matrices
+    matrix_transform = Mat4x4.identity_matrix()
+    matrix_transform = matrix_transform:mult(
+        Mat4x4.rotation_z_matrix(theta):mult(
+        Mat4x4.translation_matrix(0, 0, 3):mult(
+        Mat4x4.rotation_y_matrix(theta/2):mult(
+        Mat4x4.translation_matrix(0, 0, -3)
+    ))))
 
     -- Construct "point at" matrix for camera
     local vec_up = Vector3(0, 1, 0)
@@ -127,9 +144,11 @@ function playdate.update()
 
     -- project triangles onto 2D plane
     for itri, _ in ipairs(mesh_proj) do
-        -- Apply rotation and translation transforms
-        mesh_proj[itri] = apply(mat_rot, mesh[itri])
-        mesh_proj[itri] = apply(mat_move, mesh_proj[itri])
+        -- Copy triangle
+        mesh_proj[itri] = apply(Mat4x4.identity_matrix(), mesh[itri])
+
+        -- Apply all transforms
+        mesh_proj[itri] = apply(matrix_transform, mesh_proj[itri])
 
         -- Compute the normal of this triangle
         local a = mesh_proj[itri][2]:sub(mesh_proj[itri][1])
