@@ -275,7 +275,7 @@ function mat4.point_at_matrix(pos, target, up)
 
     local m = mat4()
     m:set(1,1, newright.x)   ; m:set(1,2, newright.y)   ; m:set(1,3, newright.z)
-    m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(1,3, newup.z)
+    m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(2,3, newup.z)
     m:set(3,1, newforward.x) ; m:set(3,2, newforward.y) ; m:set(3,3, newforward.z)
     m:set(4,1, pos.x)        ; m:set(4,2, pos.y)        ; m:set(4,3, pos.z)
     m:set(4,4, 1)
