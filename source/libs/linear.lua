@@ -102,9 +102,9 @@ end
 
 function vec3:add(v)
     if type( v ) == 'number' then
-        return vec3(self.x + v, self.y + v)
+        return vec3(self.x + v, self.y + v, self.z + v)
     elseif type( v ) == 'table' then
-        return vec3(self.x + v.x, self.y + v.y)
+        return vec3(self.x + v.x, self.y + v.y, self.z + v.z)
     else
         error('vector3:add, invalid type!')
     end

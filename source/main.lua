@@ -40,7 +40,7 @@ local mesh_proj = {}
 local mesh_view = {}
 local yaw = 0
 local theta = 0
-local camera = vec3(0, 0, -10)
+local vec_camera = vec3(0, 0, -10)
 local vec_lookdir = vec3(0, 0, 1)
 
 local function apply(matrix, triangle)
@@ -101,17 +101,17 @@ init()
 
 function playdate.update()
 
+    print(vec_camera:tostring())
+
     if clear_screen then
         gfx.clear(gfx.kColorWhite)
     end
 
     -- User input
-    if pd.buttonIsPressed(pd.kButtonUp)    then camera.z += 0.3 end
-    if pd.buttonIsPressed(pd.kButtonDown)  then camera.z -= 0.3 end
-    -- if pd.buttonIsPressed(pd.kButtonLeft)  then camera.x += 0.3 end
-    -- if pd.buttonIsPressed(pd.kButtonRight) then camera.x -= 0.3 end
-    if pd.buttonIsPressed(pd.kButtonLeft)  then yaw -= 1 end
-    if pd.buttonIsPressed(pd.kButtonRight) then yaw += 1 end
+    if pd.buttonIsPressed(pd.kButtonUp)    then vec_camera = vec_camera:add(vec_lookdir) end
+    if pd.buttonIsPressed(pd.kButtonDown)  then vec_camera = vec_camera:sub(vec_lookdir) end
+    if pd.buttonIsPressed(pd.kButtonLeft)  then yaw += 1 end
+    if pd.buttonIsPressed(pd.kButtonRight) then yaw -= 1 end
     if pd.buttonJustPressed(pd.kButtonA) then
         if clear_screen == true then
             clear_screen = false
@@ -136,10 +136,10 @@ function playdate.update()
     -- Construct "point at" matrix for camera
     local vec_up = vec3(0, 1, 0)
     local vec_target = vec3(0, 0, 1)
-    local mat_camrot = mat4.rotation_y_matrix(yaw)
+    local mat_camrot = mat4.rotation_y_matrix(yaw/100)
     vec_lookdir = mat_camrot:mult(vec_target)
-    vec_target = camera:add(vec_lookdir)
-    local mat_cam = mat4.point_at_matrix(camera, vec_target, vec_up)
+    vec_target = vec_camera:add(vec_lookdir)
+    local mat_cam = mat4.point_at_matrix(vec_camera, vec_target, vec_up)
     local mat_view = mat4.quick_inverse(mat_cam)
 
     local drawbuffer = {}
@@ -165,7 +165,7 @@ function playdate.update()
         mesh_view[itri] = apply(mat_proj, mesh_view[itri])
 
         -- Get ray from triangle to camera
-        local vec_camray = mesh_proj[itri][1]:sub(camera)
+        local vec_camray = mesh_proj[itri][1]:sub(vec_camera)
 
         -- only add triangles to the draw buffer whose normal
         -- z component is facing the camera.
