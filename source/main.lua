@@ -30,14 +30,16 @@ local FILENAME      = 'assets/icosahedron.obj'
 local matrix_transform = {}
 local mat_init = mat4.translation_matrix(0, 0, 0)
 local mat_move = mat4.translation_matrix(0, 0, 0)
-local mat_proj = mat4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
+local mat_model = {}
+local mat_projection = mat4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
+local mat_view = {}
 local mat_addonexy, mat_scale = mat4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 -- Variables
 local clear_screen = true
-local mesh = {}
-local mesh_proj = {}
-local mesh_view = {}
+local mesh_model = {}
+local mesh_world = {}
+local mesh_homog = {}
 local yaw = 0
 local theta = 0
 local vec_camera = vec3(0, 0, -10)
@@ -45,6 +47,12 @@ local vec_lookdir = vec3(0, 0, 1)
 
 local function apply(matrix, triangle)
     return {matrix:mult(triangle[1]), matrix:mult(triangle[2]), matrix:mult(triangle[3])}
+end
+
+local function normal(triangle)
+    local a = triangle[2]:sub(triangle[1])
+    local b = triangle[3]:sub(triangle[1])
+    return a:cross(b):normalize()
 end
 
 local function drawtriangles(buffer, wireframe)
@@ -83,17 +91,17 @@ end
 
 local function init()
     -- Let's read in the file
-    mesh = ObjReader.read(FILENAME)
+    mesh_model = ObjReader.read(FILENAME)
 
     -- Set up projection and view meshes
-    for i = 1, #mesh, 1 do
-        table.insert(mesh_proj, {})
-        table.insert(mesh_view, {})
+    for i = 1, #mesh_model, 1 do
+        table.insert(mesh_world, {})
+        table.insert(mesh_homog, {})
     end
 
     -- First, let's add a bit of translation into the z-axis
-    for itri, _ in ipairs(mesh) do
-        mesh[itri] = apply(mat_init, mesh[itri])
+    for itri, _ in ipairs(mesh_model) do
+        mesh_model[itri] = apply(mat_init, mesh_model[itri])
     end
 end
 
@@ -123,8 +131,8 @@ function playdate.update()
     end
 
     -- Generate transformation matrices
-    matrix_transform = mat4.identity_matrix()
-    matrix_transform = matrix_transform:mult(
+    mat_model = mat4.identity_matrix()
+    mat_model = mat_model:mult(
         mat4.rotation_z_matrix(theta):mult(
         mat4.translation_matrix(0, 0, 3):mult(
         mat4.rotation_y_matrix(theta/2):mult(
@@ -143,35 +151,29 @@ function playdate.update()
     local drawbuffer = {}
 
     -- project triangles onto 2D plane
-    for itri, _ in ipairs(mesh_proj) do
-        -- Copy triangle
-        mesh_proj[itri] = apply(mat4.identity_matrix(), mesh[itri])
+    for itri, _ in ipairs(mesh_model) do
 
-        -- Apply all transforms
-        mesh_proj[itri] = apply(matrix_transform, mesh_proj[itri])
-
-        -- Compute the normal of this triangle
-        local a = mesh_proj[itri][2]:sub(mesh_proj[itri][1])
-        local b = mesh_proj[itri][3]:sub(mesh_proj[itri][1])
-        local n = a:cross(b)
-        local d = n:dot(LIGHT_DIR)
-
-        -- Convert from world space to view space
-        mesh_view[itri] = apply(mat_view, mesh_proj[itri])
-
-        -- Compute projection, 3D -> 2D
-        mesh_view[itri] = apply(mat_proj, mesh_view[itri])
+        -- Apply all model transforms, compute normal
+        mesh_world[itri] = apply(mat_model, mesh_model[itri])
+        local n = normal(mesh_world[itri])
 
         -- Get ray from triangle to camera
-        local vec_camray = mesh_proj[itri][1]:sub(vec_camera)
+        local vec_camray = mesh_world[itri][1]:sub(vec_camera)
 
-        -- only add triangles to the draw buffer whose normal z component
-        -- is facing the camera and which are in front of the camera.
+        -- Only add triangles to the draw buffer whose normal z-component
+        -- is facing the camera.
         if vec_camray:dot(n) < 0 then
+            -- Illumination
+            local d = n:dot(LIGHT_DIR)
+            -- Convert from world space to view space
+            mesh_homog[itri] = apply(mat4.identity_matrix(), mesh_world[itri])
+            mesh_homog[itri] = apply(mat_view, mesh_homog[itri])
+            -- Compute projection, 3D -> 2D
+            mesh_homog[itri] = apply(mat_projection, mesh_homog[itri])
             -- Scale projection onto screen
-            mesh_view[itri] = apply(mat_addonexy, mesh_view[itri])
-            mesh_view[itri] = apply(mat_scale, mesh_view[itri])
-            table.insert(drawbuffer, {verts = mesh_view[itri], lightnormaldot = d})
+            mesh_homog[itri] = apply(mat_addonexy, mesh_homog[itri])
+            mesh_homog[itri] = apply(mat_scale, mesh_homog[itri])
+            table.insert(drawbuffer, {verts = mesh_homog[itri], lightnormaldot = d})
         end
     end
 
