@@ -101,8 +101,6 @@ init()
 
 function playdate.update()
 
-    print(vec_camera:tostring())
-
     if clear_screen then
         gfx.clear(gfx.kColorWhite)
     end
@@ -167,9 +165,9 @@ function playdate.update()
         -- Get ray from triangle to camera
         local vec_camray = mesh_proj[itri][1]:sub(vec_camera)
 
-        -- only add triangles to the draw buffer whose normal
-        -- z component is facing the camera.
-        if vec_camray:dot(n) then
+        -- only add triangles to the draw buffer whose normal z component
+        -- is facing the camera and which are in front of the camera.
+        if vec_camray:dot(n) < 0 then
             -- Scale projection onto screen
             mesh_view[itri] = apply(mat_addonexy, mesh_view[itri])
             mesh_view[itri] = apply(mat_scale, mesh_view[itri])

@@ -152,6 +152,16 @@ function mat4:tostring()
     return str
 end
 
+function mat4:transpose()
+    local m = mat4()
+    for irow = 1, 4 do
+        for icol = 1, 4 do
+            m.m[irow][icol] = self.m[icol][irow]
+        end
+    end
+    return m
+end
+
 function mat4:add(B)
     local C = mat4()
     for i = 1, 4 do
@@ -163,6 +173,7 @@ function mat4:add(B)
 end
 
 function mat4:mult(B)
+    -- b A = x
     if B:isa(vec3) then
         local u = vec3(
             B.x * self.m[1][1] + B.y * self.m[2][1] + B.z * self.m[3][1] + self.m[4][1],
@@ -177,6 +188,21 @@ function mat4:mult(B)
             u.z = u.z / w
         end
         return u
+    -- A b = x
+    -- if B:isa(vec3) then
+    --     local u = vec3(
+    --         B.x*self.m[1][1] + B.y*self.m[1][2] + B.z*self.m[1][3] + self.m[1][4],
+    --         B.x*self.m[2][1] + B.y*self.m[2][2] + B.z*self.m[2][3] + self.m[2][4],
+    --         B.x*self.m[3][1] + B.y*self.m[3][2] + B.z*self.m[3][3] + self.m[3][4]
+    --     )
+    --     -- Fourth element, padding on the vec3
+    --     local w = B.x * self.m[4][1] + B.y*self.m[4][2] + B.z*self.m[4][3] + self.m[4][4]
+    --     if w ~= 0 then
+    --         u.x = u.x / w
+    --         u.y = u.y / w
+    --         u.z = u.z / w
+    --     end
+    --     return u
     elseif B:isa(mat4) then
         local M = mat4()
         for i = 1, 4, 1 do
@@ -240,6 +266,25 @@ function mat4.rotation_z_matrix(theta)
     m:set(2, 2, cos(theta))
     m:set(3, 3, 1)
     m:set(4, 4, 1)
+    return m
+end
+
+-- generates our 'view' matrix
+---@param eye vec3, position of camera in world space
+---@param lookat vec3, position of camera target in world space
+---@param up vec3, direction of 'up', typically {0, 1, 0}
+function mat4.look_at_matrix(eye, lookat, up)
+    -- define forward, up and right vectors
+    local newforward = lookat:sub(eye):normalize()
+    local newup      = up:sub( newforward:mult(newforward:dot(up)) ):normalize()
+    local newright   = newup:cross(newforward)
+    -- first we translate everything relative to camera position
+    local m = mat4.translation_matrix(-eye.x, -eye.y, -eye.z)
+    -- then we add the new rotations
+    m:set(1,1, newright.x)   ; m:set(1,2, newright.y)   ; m:set(1,3, newright.z)
+    m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(2,3, newup.z)
+    m:set(3,1, newforward.x) ; m:set(3,2, newforward.y) ; m:set(3,3, newforward.z)
+    m:set(4,4, 1)
     return m
 end
 
