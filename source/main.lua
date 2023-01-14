@@ -27,19 +27,19 @@ local DRAWWIREFRAME = true
 local FILENAME      = 'assets/icosahedron.obj'
 
 -- Matrices
-local matrix_transform = {}
 local mat_init = mat4.translation_matrix(0, 0, 0)
-local mat_move = mat4.translation_matrix(0, 0, 0)
 local mat_model = {}
 local mat_projection = mat4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
 local mat_view = {}
 local mat_addonexy, mat_scale = mat4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
--- Variables
-local clear_screen = true
+-- Meshes
 local mesh_model = {}
 local mesh_world = {}
 local mesh_homog = {}
+
+-- Variables
+local clear_screen = true
 local yaw = 0
 local theta = 0
 local vec_camera = vec3(0, 0, -10)
@@ -139,12 +139,10 @@ function playdate.update()
     local vec_up = vec3(0, 1, 0)
     local vec_target = vec3(0, 0, 1)
     local mat_camrot = mat4.rotation_y_matrix(yaw/100)
-    -- vec_camera = mat4.rotation_y_matrix(yaw/2):mult(vec_camera)
     vec_lookdir = mat_camrot:mult(vec_target)
     vec_target = vec_camera:add(vec_lookdir)
-    -- vec_camera = mat4.rotation_y_matrix(theta/2):mult(vec_camera)
-    local mat_cam = mat4.point_at_matrix(vec_camera, vec_target, vec_up)
-    local mat_view = mat4.quick_inverse(mat_cam)
+    local mat_cam = mat4.look_at_matrix(vec_camera, vec_target, vec_up)
+    mat_view = mat4.quick_inverse(mat_cam)
 
     local drawbuffer = {}
 

@@ -6,6 +6,7 @@ import "CoreLibs/object"
 
 local cos <const> = math.cos
 local sin <const> = math.sin
+local acos <const> = math.acos
 
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -103,7 +104,7 @@ end
 function vec3:angle(vec)
     local a = self:normalize()
     local b = vec:normalize()
-    return math.acos(a:dot(b))
+    return acos(a:dot(b))
 end
 
 
@@ -164,7 +165,7 @@ end
 function vec3d:angle(vec)
     local a = self:normalize()
     local b = vec:normalize()
-    return math.acos(a:dot(b))
+    return acos(a:dot(b))
 end
 
 function vec3d:div(s)
@@ -370,25 +371,6 @@ function mat4.rotation_z_matrix(theta)
     return m
 end
 
--- generates our 'view' matrix
----@param eye vec3, position of camera in world space
----@param lookat vec3, position of camera target in world space
----@param up vec3, direction of 'up', typically {0, 1, 0}
-function mat4.look_at_matrix(eye, lookat, up)
-    -- define forward, up and right vectors
-    local newforward = lookat:sub(eye):normalize()
-    local newup      = up:sub( newforward:mult(newforward:dot(up)) ):normalize()
-    local newright   = newup:cross(newforward)
-    -- first we translate everything relative to camera position
-    local m = mat4.translation_matrix(-eye.x, -eye.y, -eye.z)
-    -- then we add the new rotations
-    m:set(1,1, newright.x)   ; m:set(1,2, newright.y)   ; m:set(1,3, newright.z)
-    m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(2,3, newup.z)
-    m:set(3,1, newforward.x) ; m:set(3,2, newforward.y) ; m:set(3,3, newforward.z)
-    m:set(4,4, 1)
-    return m
-end
-
 function mat4.projection_matrix(asp_ratio, fovrad, znear, zfar)
     local m = mat4()
     local q = zfar / (zfar - znear)
@@ -410,20 +392,19 @@ function mat4.scaling_matrices(screen_width, screen_height)
     return m, n
 end
 
-function mat4.point_at_matrix(pos, target, up)
-    -- New up direction
-    local newforward = target:sub(pos):normalize()
-    local a = newforward:mult(up:dot(newforward))
-    local newup = up:sub(a):normalize()
-
-    -- New right direction
-    local newright = newup:cross(newforward)
-
-    local m = mat4()
+-- generates our 'view' matrix, which moves us from world to
+-- view space
+---@param eye vec3, position of camera in world space
+---@param lookat vec3, position of camera target in world space
+---@param up vec3, direction of 'up', typically {0, 1, 0}
+function mat4.look_at_matrix(eye, lookat, up)
+    local newforward = lookat:sub(eye):normalize()
+    local newup      = up:sub( newforward:mult(newforward:dot(up)) ):normalize()
+    local newright   = newup:cross(newforward)
+    local m = mat4.translation_matrix(eye.x, eye.y, eye.z)
     m:set(1,1, newright.x)   ; m:set(1,2, newright.y)   ; m:set(1,3, newright.z)
     m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(2,3, newup.z)
     m:set(3,1, newforward.x) ; m:set(3,2, newforward.y) ; m:set(3,3, newforward.z)
-    m:set(4,1, pos.x)        ; m:set(4,2, pos.y)        ; m:set(4,3, pos.z)
     m:set(4,4, 1)
     return m
 end
