@@ -55,6 +55,21 @@ function distanceBetween(a, b)
     return math.sqrt((a.x - b.x)^2 + (a.y - b.y)^2 + (a.z - b.z)^2)
 end
 
+function round(x, n)
+    n = 10 ^ (n or 0)
+    x = x * n
+    if x >= 0 then x = math.floor(x + 0.5) else x = math.ceil(x - 0.5) end
+    return x / n
+end
+
+function rad2deg(rad)
+    return (rad * 180)/math.pi
+end
+
+function deg2rad(deg)
+    return (deg * math.pi)/180
+end
+
 -- binary string to number
 local function b(e)
     return tonumber(e, 2)

@@ -100,6 +100,13 @@ function vec3:dot(vec)
     return self.x * vec.x + self.y * vec.y + self.z * vec.z
 end
 
+function vec3:angle(vec)
+    local a = self:normalize()
+    local b = vec:normalize()
+    return math.acos(a:dot(b))
+end
+
+
 function vec3:add(v)
     if type( v ) == 'number' then
         return vec3(self.x + v, self.y + v, self.z + v)
@@ -119,6 +126,72 @@ function vec3:cross(vec)
     local y = (self.x * vec.z - self.z * vec.x) * -1
     local z = self.x * vec.y - self.y * vec.x
     return vec3(x, y, z)
+end
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+class('vec3d').extends()
+
+function vec3d:init(x, y, z, w)
+    self.x = x or 0
+    self.y = y or 0
+    self.z = z or 0
+    self.w = w or 0
+end
+
+function vec3d:tostring()
+    return string.format('x: %f y: %f z: %f w: %f', self.x, self.y, self.z, self.w)
+end
+
+function vec3d:magnitude()
+    return math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
+end
+
+function vec3d:normalize()
+    local mag = self:magnitude()
+    return vec3d(self.x / mag, self.y / mag, self.z / mag)
+end
+
+function vec3d:mult(scalar)
+    return vec3d(self.x * scalar, self.y * scalar, self.z * scalar)
+end
+
+function vec3d:dot(vec)
+    return self.x * vec.x + self.y * vec.y + self.z * vec.z
+end
+
+function vec3d:angle(vec)
+    local a = self:normalize()
+    local b = vec:normalize()
+    return math.acos(a:dot(b))
+end
+
+function vec3d:div(s)
+    return vec3d(self.x / s, self.y / s, self.z / s)
+end
+
+function vec3d:adds(s)
+    return vec3d(self.x + s, self.y + s, self.z + s)
+end
+
+function vec3d:subs(s)
+    return vec3d(self.x - s, self.y - s, self.z - s)
+end
+
+function vec3d:addv(v)
+    return vec3d(self.x + v.x, self.y + v.y, self.z + v.z)
+end
+
+function vec3d:subv(v)
+    return vec3d(self.x - v.x, self.y - v.y, self.z - v.z)
+end
+
+function vec3d:cross(vec)
+    local x = self.y * vec.z - self.z * vec.y
+    local y = (self.x * vec.z - self.z * vec.x) * -1
+    local z = self.x * vec.y - self.y * vec.x
+    return vec3d(x, y, z)
 end
 
 -------------------------------------------------------------------------------
@@ -170,6 +243,34 @@ function mat4:add(B)
         end
     end
     return C
+end
+
+function mat4:multv(v)
+    -- A b = x
+    local u = vec3d(
+        B.x*self.m[1][1] + B.y*self.m[1][2] + B.z*self.m[1][3] + self.m[1][4],
+        B.x*self.m[2][1] + B.y*self.m[2][2] + B.z*self.m[2][3] + self.m[2][4],
+        B.x*self.m[3][1] + B.y*self.m[3][2] + B.z*self.m[3][3] + self.m[3][4]
+    )
+    -- fourth element, w
+    local w = B.x * self.m[4][1] + B.y*self.m[4][2] + B.z*self.m[4][3] + self.m[4][4]
+    if w ~= 0 then
+        u.x = u.x / w
+        u.y = u.y / w
+        u.z = u.z / w
+    end
+    return u
+end
+
+function mat4:multm(m)
+    local M = mat4()
+    for i = 1, 4 do
+        for j = 1, 4 do
+            for k = 1, 4 do
+                M.m[i][j] += self.m[i][k] * B.m[k][j]
+            end
+        end
+    end
 end
 
 function mat4:mult(B)

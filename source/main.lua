@@ -125,10 +125,6 @@ function playdate.update()
             clear_screen = true
         end
     end
-    if pd.buttonJustPressed(pd.kButtonB) then
-        -- mat_move = mat4.translation_matrix(0, 0, 3)
-        mat_move:set(4, 3, mat_move.m[3][4] + 1)
-    end
 
     -- Generate transformation matrices
     mat_model = mat4.identity_matrix()
@@ -143,18 +139,21 @@ function playdate.update()
     local vec_up = vec3(0, 1, 0)
     local vec_target = vec3(0, 0, 1)
     local mat_camrot = mat4.rotation_y_matrix(yaw/100)
+    -- vec_camera = mat4.rotation_y_matrix(yaw/2):mult(vec_camera)
     vec_lookdir = mat_camrot:mult(vec_target)
     vec_target = vec_camera:add(vec_lookdir)
+    -- vec_camera = mat4.rotation_y_matrix(theta/2):mult(vec_camera)
     local mat_cam = mat4.point_at_matrix(vec_camera, vec_target, vec_up)
     local mat_view = mat4.quick_inverse(mat_cam)
 
     local drawbuffer = {}
 
-    -- project triangles onto 2D plane
+    -- draw all triangles
     for itri, _ in ipairs(mesh_model) do
 
         -- Apply all model transforms, compute normal
-        mesh_world[itri] = apply(mat_model, mesh_model[itri])
+        -- mesh_world[itri] = apply(mat_model, mesh_model[itri])
+        mesh_world[itri] = apply(mat4.identity_matrix(), mesh_model[itri])
         local n = normal(mesh_world[itri])
 
         -- Get ray from triangle to camera
@@ -162,17 +161,22 @@ function playdate.update()
 
         -- Only add triangles to the draw buffer whose normal z-component
         -- is facing the camera.
-        if vec_camray:dot(n) < 0 then
+        if vec_camray:dot(n) <= 0 then--and vec_lookdir:dot(n) <= 0 then
+
             -- Illumination
             local d = n:dot(LIGHT_DIR)
+
             -- Convert from world space to view space
             mesh_homog[itri] = apply(mat4.identity_matrix(), mesh_world[itri])
             mesh_homog[itri] = apply(mat_view, mesh_homog[itri])
+
             -- Compute projection, 3D -> 2D
             mesh_homog[itri] = apply(mat_projection, mesh_homog[itri])
+
             -- Scale projection onto screen
             mesh_homog[itri] = apply(mat_addonexy, mesh_homog[itri])
             mesh_homog[itri] = apply(mat_scale, mesh_homog[itri])
+
             table.insert(drawbuffer, {verts = mesh_homog[itri], lightnormaldot = d})
         end
     end
@@ -188,6 +192,10 @@ function playdate.update()
     drawtriangles(drawbuffer, DRAWWIREFRAME)
 
     pd.drawFPS(5, 5)
+    gfx.drawText('yaw: ' .. yaw, 20, 5)
+    gfx.drawText('x: ' .. round(vec_camera.x, 2), 5, 220)
+    gfx.drawText('y: ' .. round(vec_camera.y, 2), 55, 220)
+    gfx.drawText('z: ' .. round(vec_camera.z, 2), 110, 220)
 end
 
 function playdate.cranked(change, acceleratedChange)
