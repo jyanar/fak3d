@@ -326,43 +326,7 @@ function mat4.rotation_z_matrix(theta)
     return m
 end
 
--- function mat4.perspective_matrix(asp_ratio, fovrad, znear, zfar)
---     local m = mat4()
---     local q = zfar / (zfar - znear)
---     m:set(1, 1, fovrad / asp_ratio)
---     m:set(2, 2, fovrad)
---     m:set(3, 3, q)
---     m:set(3, 4, -1 * znear * q)
---     m:set(4, 3, 1)
---     return m
--- end
-
--- function mat4.projection_matrix_chatgpt(aspect_ratio, fovrad, znear, zfar)
---     local fov = 1 / math.tan(fovrad / 2)
---     local m = mat4()
---     m:set(1, 1, fov / aspect_ratio)
---     m:set(2, 2, fov)
---     m:set(3, 3, (zfar + znear) / (znear - zfar))
---     m:set(3, 4, (2 * zfar * znear) / (znear - zfar))
---     m:set(4, 3, -1)
---     return m
--- end
-
--- function mat4.perspective(fieldOfViewYInRadians, aspect, zNear, zFar, dst)
---     local dst = dst or mat4()
---     local f = tan(math.pi * 0.5 - 0.5 * fieldOfViewYInRadians)
---     local rangeinv = 1.0 / (zNear - zFar)
-
---     local m = mat4()
---     m:set(1, 1, f / aspect)
---     m:set(2, 2, f)
---     m:set(3, 3, (zNear + zFar) * rangeinv)
---     m:set(3, 4, -1)
---     m:set(4, 3, zNear * zFar * rangeinv * 2)
---     return m
--- end
-
-function mat4.projection_matrix(asp_ratio, fovrad, znear, zfar)
+function mat4.perspective_matrix(asp_ratio, fovrad, znear, zfar)
     local m = mat4()
     local q = zfar / (zfar - znear)
     m:set(1, 1, asp_ratio * fovrad)

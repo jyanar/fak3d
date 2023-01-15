@@ -29,7 +29,7 @@ local FILENAME      = 'assets/icosahedron.obj'
 -- Matrices
 local mat_init = mat4.translation_matrix(0, 0, 0)
 local mat_model = {}
-local mat_projection = mat4.projection_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
+local mat_projection = mat4.perspective_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
 local mat_view = {}
 local mat_addonexy, mat_scale = mat4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -95,10 +95,8 @@ local function handleinput()
     if pd.buttonIsPressed(pd.kButtonLeft)  then yaw += 1 end
     if pd.buttonIsPressed(pd.kButtonRight) then yaw -= 1 end
     if pd.buttonJustPressed(pd.kButtonA) then
-        if clear_screen == true then
-            clear_screen = false
-        elseif clear_screen == false then
-            clear_screen = true
+        if     clear_screen == true  then clear_screen = false
+        elseif clear_screen == false then clear_screen = true
         end
     end
 end
@@ -123,15 +121,14 @@ init()
 
 function playdate.update()
 
-    if clear_screen then
-        gfx.clear(gfx.kColorWhite)
-    end
+    -- Clear the screen
+    if clear_screen then gfx.clear(gfx.kColorWhite) end
 
+    -- Handle user input
     handleinput()
 
     -- Generate transformation matrices
-    mat_model = mat4.identity_matrix()
-    mat_model = mat_model:multm(
+    mat_model = mat4.identity_matrix():multm(
         mat4.rotation_z_matrix(theta):multm(
         mat4.translation_matrix(0, 0, 3):multm(
         mat4.rotation_y_matrix(theta/2):multm(
