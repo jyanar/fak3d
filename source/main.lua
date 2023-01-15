@@ -22,7 +22,7 @@ local SCREEN_HEIGHT = 200
 -- local LIGHT_DIR     = vec3(0, 0, -1) -- Light faces us
 -- local LIGHT_DIR     = vec3(0, 0, 1)  -- Light faces away from us
 -- local LIGHT_DIR     = vec3(0, 1, 0)  -- Top down
-local LIGHT_DIR     = vec3(-0.5, 0.8, 0) -- Top down, to the right, to the front
+local LIGHT_DIR     = vec3d(-0.5, 0.8, 0) -- Top down, to the right, to the front
 local DRAWWIREFRAME = true
 local FILENAME      = 'assets/icosahedron.obj'
 
@@ -42,16 +42,16 @@ local mesh_homog = {}
 local clear_screen = true
 local yaw = 0
 local theta = 0
-local vec_camera = vec3(0, 0, -10)
-local vec_lookdir = vec3(0, 0, 1)
+local vec_camera = vec3d(0, 0, -10)
+local vec_lookdir = vec3d(0, 0, 1)
 
 local function apply(matrix, triangle)
-    return {matrix:mult(triangle[1]), matrix:mult(triangle[2]), matrix:mult(triangle[3])}
+    return {matrix:multv(triangle[1]), matrix:multv(triangle[2]), matrix:multv(triangle[3])}
 end
 
 local function normal(triangle)
-    local a = triangle[2]:sub(triangle[1])
-    local b = triangle[3]:sub(triangle[1])
+    local a = triangle[2]:subv(triangle[1])
+    local b = triangle[3]:subv(triangle[1])
     return a:cross(b):normalize()
 end
 
@@ -89,6 +89,20 @@ local function drawtriangles(buffer, wireframe)
     end
 end
 
+local function handleinput()
+    if pd.buttonIsPressed(pd.kButtonUp)    then vec_camera = vec_camera:addv(vec_lookdir) end
+    if pd.buttonIsPressed(pd.kButtonDown)  then vec_camera = vec_camera:subv(vec_lookdir) end
+    if pd.buttonIsPressed(pd.kButtonLeft)  then yaw += 1 end
+    if pd.buttonIsPressed(pd.kButtonRight) then yaw -= 1 end
+    if pd.buttonJustPressed(pd.kButtonA) then
+        if clear_screen == true then
+            clear_screen = false
+        elseif clear_screen == false then
+            clear_screen = true
+        end
+    end
+end
+
 local function init()
     -- Let's read in the file
     mesh_model = ObjReader.read(FILENAME)
@@ -113,34 +127,23 @@ function playdate.update()
         gfx.clear(gfx.kColorWhite)
     end
 
-    -- User input
-    if pd.buttonIsPressed(pd.kButtonUp)    then vec_camera = vec_camera:add(vec_lookdir) end
-    if pd.buttonIsPressed(pd.kButtonDown)  then vec_camera = vec_camera:sub(vec_lookdir) end
-    if pd.buttonIsPressed(pd.kButtonLeft)  then yaw += 1 end
-    if pd.buttonIsPressed(pd.kButtonRight) then yaw -= 1 end
-    if pd.buttonJustPressed(pd.kButtonA) then
-        if clear_screen == true then
-            clear_screen = false
-        elseif clear_screen == false then
-            clear_screen = true
-        end
-    end
+    handleinput()
 
     -- Generate transformation matrices
     mat_model = mat4.identity_matrix()
-    mat_model = mat_model:mult(
-        mat4.rotation_z_matrix(theta):mult(
-        mat4.translation_matrix(0, 0, 3):mult(
-        mat4.rotation_y_matrix(theta/2):mult(
+    mat_model = mat_model:multm(
+        mat4.rotation_z_matrix(theta):multm(
+        mat4.translation_matrix(0, 0, 3):multm(
+        mat4.rotation_y_matrix(theta/2):multm(
         mat4.translation_matrix(0, 0, -3)
     ))))
 
     -- Construct "point at" matrix for camera
-    local vec_up = vec3(0, 1, 0)
-    local vec_target = vec3(0, 0, 1)
+    local vec_up = vec3d(0, 1, 0)
+    local vec_target = vec3d(0, 0, 1)
     local mat_camrot = mat4.rotation_y_matrix(yaw/100)
-    vec_lookdir = mat_camrot:mult(vec_target)
-    vec_target = vec_camera:add(vec_lookdir)
+    vec_lookdir = mat_camrot:multv(vec_target)
+    vec_target = vec_camera:addv(vec_lookdir)
     local mat_cam = mat4.look_at_matrix(vec_camera, vec_target, vec_up)
     mat_view = mat4.quick_inverse(mat_cam)
 
@@ -150,12 +153,12 @@ function playdate.update()
     for itri, _ in ipairs(mesh_model) do
 
         -- Apply all model transforms, compute normal
-        -- mesh_world[itri] = apply(mat_model, mesh_model[itri])
-        mesh_world[itri] = apply(mat4.identity_matrix(), mesh_model[itri])
+        mesh_world[itri] = apply(mat_model, mesh_model[itri])
+        -- mesh_world[itri] = apply(mat4.identity_matrix(), mesh_model[itri])
         local n = normal(mesh_world[itri])
 
         -- Get ray from triangle to camera
-        local vec_camray = mesh_world[itri][1]:sub(vec_camera)
+        local vec_camray = mesh_world[itri][1]:subv(vec_camera)
 
         -- Only add triangles to the draw buffer whose normal z-component
         -- is facing the camera.

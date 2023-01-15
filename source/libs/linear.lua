@@ -6,6 +6,7 @@ import "CoreLibs/object"
 
 local cos <const> = math.cos
 local sin <const> = math.sin
+local tan <const> = math.tan
 local acos <const> = math.acos
 
 -------------------------------------------------------------------------------
@@ -247,14 +248,14 @@ function mat4:add(B)
 end
 
 function mat4:multv(v)
-    -- A b = x
+    -- A v = u
     local u = vec3d(
-        B.x*self.m[1][1] + B.y*self.m[1][2] + B.z*self.m[1][3] + self.m[1][4],
-        B.x*self.m[2][1] + B.y*self.m[2][2] + B.z*self.m[2][3] + self.m[2][4],
-        B.x*self.m[3][1] + B.y*self.m[3][2] + B.z*self.m[3][3] + self.m[3][4]
+        v.x*self.m[1][1] + v.y*self.m[1][2] + v.z*self.m[1][3] + self.m[1][4],
+        v.x*self.m[2][1] + v.y*self.m[2][2] + v.z*self.m[2][3] + self.m[2][4],
+        v.x*self.m[3][1] + v.y*self.m[3][2] + v.z*self.m[3][3] + self.m[3][4]
     )
     -- fourth element, w
-    local w = B.x * self.m[4][1] + B.y*self.m[4][2] + B.z*self.m[4][3] + self.m[4][4]
+    local w = v.x * self.m[4][1] + v.y*self.m[4][2] + v.z*self.m[4][3] + self.m[4][4]
     if w ~= 0 then
         u.x = u.x / w
         u.y = u.y / w
@@ -268,54 +269,11 @@ function mat4:multm(m)
     for i = 1, 4 do
         for j = 1, 4 do
             for k = 1, 4 do
-                M.m[i][j] += self.m[i][k] * B.m[k][j]
+                M.m[i][j] += self.m[i][k] * m.m[k][j]
             end
         end
     end
-end
-
-function mat4:mult(B)
-    -- b A = x
-    if B:isa(vec3) then
-        local u = vec3(
-            B.x * self.m[1][1] + B.y * self.m[2][1] + B.z * self.m[3][1] + self.m[4][1],
-            B.x * self.m[1][2] + B.y * self.m[2][2] + B.z * self.m[3][2] + self.m[4][2],
-            B.x * self.m[1][3] + B.y * self.m[2][3] + B.z * self.m[3][3] + self.m[4][3]
-        )
-        -- Fourth element, paddding on the Vec3
-        local w = B.x * self.m[1][4] + B.y * self.m[2][4] + B.z * self.m[3][4] + self.m[4][4]
-        if w ~= 0 then
-            u.x = u.x / w
-            u.y = u.y / w
-            u.z = u.z / w
-        end
-        return u
-    -- A b = x
-    -- if B:isa(vec3) then
-    --     local u = vec3(
-    --         B.x*self.m[1][1] + B.y*self.m[1][2] + B.z*self.m[1][3] + self.m[1][4],
-    --         B.x*self.m[2][1] + B.y*self.m[2][2] + B.z*self.m[2][3] + self.m[2][4],
-    --         B.x*self.m[3][1] + B.y*self.m[3][2] + B.z*self.m[3][3] + self.m[3][4]
-    --     )
-    --     -- Fourth element, padding on the vec3
-    --     local w = B.x * self.m[4][1] + B.y*self.m[4][2] + B.z*self.m[4][3] + self.m[4][4]
-    --     if w ~= 0 then
-    --         u.x = u.x / w
-    --         u.y = u.y / w
-    --         u.z = u.z / w
-    --     end
-    --     return u
-    elseif B:isa(mat4) then
-        local M = mat4()
-        for i = 1, 4, 1 do
-            for j = 1, 4, 1 do
-                for k = 1, 4, 1 do
-                    M.m[i][j] += self.m[i][k] * B.m[k][j]
-                end
-            end
-        end
-        return M
-    end
+    return M
 end
 
 function mat4.identity_matrix()
@@ -329,12 +287,9 @@ end
 
 function mat4.translation_matrix(dx, dy, dz)
     local m = mat4.identity_matrix()
-    -- m:set(1, 4, dx)
-    -- m:set(2, 4, dy)
-    -- m:set(3, 4, dz)
-    m:set(4, 1, dx)
-    m:set(4, 2, dy)
-    m:set(4, 3, dz)
+    m:set(1, 4, dx)
+    m:set(2, 4, dy)
+    m:set(3, 4, dz)
     return m
 end
 
@@ -342,8 +297,8 @@ function mat4.rotation_x_matrix(theta)
     local m = mat4()
     m:set(1, 1, 1)
     m:set(2, 2, cos(theta))
-    m:set(2, 3, sin(theta))
-    m:set(3, 2, -sin(theta))
+    m:set(2, 3, -sin(theta))
+    m:set(3, 2, sin(theta))
     m:set(3, 3, cos(theta))
     m:set(4, 4, 1)
     return m
@@ -352,24 +307,60 @@ end
 function mat4.rotation_y_matrix(theta)
     local m = mat4()
     m:set(1, 1, cos(theta))
+    m:set(1, 3, sin(theta))
     m:set(2, 2, 1)
+    m:set(3, 1, -sin(theta))
     m:set(3, 3, cos(theta))
     m:set(4, 4, 1)
-    m:set(1, 3, sin(theta))
-    m:set(3, 1, -sin(theta))
     return m
 end
 
 function mat4.rotation_z_matrix(theta)
     local m = mat4()
     m:set(1, 1, cos(theta))
-    m:set(1, 2, sin(theta))
-    m:set(2, 1, -sin(theta))
+    m:set(1, 2, -sin(theta))
+    m:set(2, 1, sin(theta))
     m:set(2, 2, cos(theta))
     m:set(3, 3, 1)
     m:set(4, 4, 1)
     return m
 end
+
+-- function mat4.perspective_matrix(asp_ratio, fovrad, znear, zfar)
+--     local m = mat4()
+--     local q = zfar / (zfar - znear)
+--     m:set(1, 1, fovrad / asp_ratio)
+--     m:set(2, 2, fovrad)
+--     m:set(3, 3, q)
+--     m:set(3, 4, -1 * znear * q)
+--     m:set(4, 3, 1)
+--     return m
+-- end
+
+-- function mat4.projection_matrix_chatgpt(aspect_ratio, fovrad, znear, zfar)
+--     local fov = 1 / math.tan(fovrad / 2)
+--     local m = mat4()
+--     m:set(1, 1, fov / aspect_ratio)
+--     m:set(2, 2, fov)
+--     m:set(3, 3, (zfar + znear) / (znear - zfar))
+--     m:set(3, 4, (2 * zfar * znear) / (znear - zfar))
+--     m:set(4, 3, -1)
+--     return m
+-- end
+
+-- function mat4.perspective(fieldOfViewYInRadians, aspect, zNear, zFar, dst)
+--     local dst = dst or mat4()
+--     local f = tan(math.pi * 0.5 - 0.5 * fieldOfViewYInRadians)
+--     local rangeinv = 1.0 / (zNear - zFar)
+
+--     local m = mat4()
+--     m:set(1, 1, f / aspect)
+--     m:set(2, 2, f)
+--     m:set(3, 3, (zNear + zFar) * rangeinv)
+--     m:set(3, 4, -1)
+--     m:set(4, 3, zNear * zFar * rangeinv * 2)
+--     return m
+-- end
 
 function mat4.projection_matrix(asp_ratio, fovrad, znear, zfar)
     local m = mat4()
@@ -379,13 +370,13 @@ function mat4.projection_matrix(asp_ratio, fovrad, znear, zfar)
     m:set(3, 3, q)
     m:set(4, 3, -1 * znear * q)
     m:set(3, 4, 1)
-    return m
+    return m:transpose()
 end
 
 function mat4.scaling_matrices(screen_width, screen_height)
     local m = mat4.identity_matrix()
-    m:set(4, 1, 1)
-    m:set(4, 2, 1)
+    m:set(1, 4, 1)
+    m:set(2, 4, 1)
     local n = mat4.identity_matrix()
     n:set(1, 1, 0.5 * screen_width)
     n:set(2, 2, 0.5 * screen_height)
@@ -398,15 +389,17 @@ end
 ---@param lookat vec3, position of camera target in world space
 ---@param up vec3, direction of 'up', typically {0, 1, 0}
 function mat4.look_at_matrix(eye, lookat, up)
-    local newforward = lookat:sub(eye):normalize()
-    local newup      = up:sub( newforward:mult(newforward:dot(up)) ):normalize()
+    local newforward = lookat:subv(eye):normalize()
+    local newup      = up:subv( newforward:mult(newforward:dot(up)) ):normalize()
     local newright   = newup:cross(newforward)
-    local m = mat4.translation_matrix(eye.x, eye.y, eye.z)
+    -- local m = mat4.translation_matrix(eye.x, eye.y, eye.z)
+    local m = mat4()
     m:set(1,1, newright.x)   ; m:set(1,2, newright.y)   ; m:set(1,3, newright.z)
     m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(2,3, newup.z)
     m:set(3,1, newforward.x) ; m:set(3,2, newforward.y) ; m:set(3,3, newforward.z)
     m:set(4,4, 1)
-    return m
+    m = m:add(mat4.translation_matrix(eye.x, eye.y, eye.z))
+    return m:transpose()
 end
 
 function mat4.quick_inverse(m)
@@ -418,7 +411,7 @@ function mat4.quick_inverse(m)
     M.m[4][2] = -(m.m[4][1] * M.m[1][2] + m.m[4][2] * M.m[2][2] + m.m[4][3] * M.m[3][2])
     M.m[4][3] = -(m.m[4][1] * M.m[1][3] + m.m[4][2] * M.m[2][3] + m.m[4][3] * M.m[3][3])
     M.m[4][4] = 1
-    return M
+    return M:transpose()
 end
 
 
