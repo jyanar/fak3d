@@ -30,6 +30,7 @@ local FILENAME      = 'assets/icosahedron.obj'
 local mat_init = mat4.translation_matrix(0, 0, 0)
 local mat_model = {}
 local mat_projection = mat4.perspective_matrix(ASP_RATIO, FOVRAD, ZNEAR, ZFAR)
+-- local mat_projection = mat4.orthographic_matrix(1, -1, 1, -1, ZNEAR, ZFAR)
 local mat_view = {}
 local mat_addonexy, mat_scale = mat4.scaling_matrices(SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -42,6 +43,8 @@ local mesh_homog = {}
 local clear_screen = true
 local yaw = 0
 local theta = 0
+local vec_up = vec3d(0, 1, 0)
+local vec_target = vec3d(0, 0, 1)
 local vec_camera = vec3d(0, 0, -10)
 local vec_lookdir = vec3d(0, 0, 1)
 
@@ -92,8 +95,8 @@ end
 local function handleinput()
     if pd.buttonIsPressed(pd.kButtonUp)    then vec_camera = vec_camera:addv(vec_lookdir) end
     if pd.buttonIsPressed(pd.kButtonDown)  then vec_camera = vec_camera:subv(vec_lookdir) end
-    if pd.buttonIsPressed(pd.kButtonLeft)  then yaw += 1 end
-    if pd.buttonIsPressed(pd.kButtonRight) then yaw -= 1 end
+    if pd.buttonIsPressed(pd.kButtonLeft)  then vec_camera = vec_camera:addv(vec_lookdir:cross(vec_up)) end
+    if pd.buttonIsPressed(pd.kButtonRight) then vec_camera = vec_camera:addv(vec_lookdir:cross(vec_up:mult(-1))) end
     if pd.buttonJustPressed(pd.kButtonA) then
         if     clear_screen == true  then clear_screen = false
         elseif clear_screen == false then clear_screen = true
@@ -136,13 +139,11 @@ function playdate.update()
     ))))
 
     -- Construct "point at" matrix for camera
-    local vec_up = vec3d(0, 1, 0)
-    local vec_target = vec3d(0, 0, 1)
-    local mat_camrot = mat4.rotation_y_matrix(yaw/100)
-    vec_lookdir = mat_camrot:multv(vec_target)
+    vec_up = vec3d(0, 1, 0)
+    vec_target = vec3d(0, 0, 1)
+    vec_lookdir = mat4.rotation_y_matrix(yaw/100):multv(vec_target)
     vec_target = vec_camera:addv(vec_lookdir)
-    local mat_cam = mat4.look_at_matrix(vec_camera, vec_target, vec_up)
-    mat_view = mat4.quick_inverse(mat_cam)
+    local mat_view = mat4.view_matrix(vec_camera, vec_lookdir, vec_up)
 
     local drawbuffer = {}
 
@@ -197,7 +198,8 @@ function playdate.update()
 end
 
 function playdate.cranked(change, acceleratedChange)
-    theta += change/180
+    -- theta += change/180
+    yaw += change/2
 end
 
 

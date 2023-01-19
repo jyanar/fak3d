@@ -1,4 +1,6 @@
 import "CoreLibs/object"
+local matrix = import "matrix"
+
 
 --
 -- Linear algebra methods.
@@ -13,8 +15,24 @@ local acos <const> = math.acos
 -------------------------------------------------------------------------------
 
 -- Using the matrix.lua library
-function vector3(x, y, z)
-    return matrix{{x, y, z}}^'T'
+
+class('vector3d').extends()
+
+function vector3d:init(x, y, z, w)
+    self.v = matrix{{ x or 0,
+                      y or 0,
+                      z or 0,
+                      w or 1 }}^'T'
+end
+
+function vector3d:dot(u)
+    local urow, ucol = matrix.size(self.v)
+    local vrow, vcol = matrix.size(u)
+    if urow == 1 and vcol == 1 then return u:mul(v) end
+    if urow == 1 and vcol ~= 1 then return u:mul(v:transpose()) end
+    if urow ~= 1 and vcol == 1 then return u:transpose():mul(v) end
+    if urow ~= 1 and vcol ~= 1 then return u:transpose():mul(v:transpose()) end
+    -- return self.v:mul(u)
 end
 
 function dot(u, v)
@@ -131,7 +149,6 @@ function vec3:cross(vec)
 end
 
 -------------------------------------------------------------------------------
--------------------------------------------------------------------------------
 
 class('vec3d').extends()
 
@@ -196,7 +213,6 @@ function vec3d:cross(vec)
     return vec3d(x, y, z)
 end
 
--------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
 class('mat4').extends()
@@ -326,15 +342,34 @@ function mat4.rotation_z_matrix(theta)
     return m
 end
 
+-- Defines a viewing frustum at a distance znear from the camera and
+-- extending to zfar. The height and width of the frustum are determined
+-- by the field of view.
+---@param asp_ratio number width/height of the viewport
+---@param fovrad number size of the field of view, in radians
+---@param znear number distance to the near plane
+---@param zfar number distance to the far plane
 function mat4.perspective_matrix(asp_ratio, fovrad, znear, zfar)
     local m = mat4()
     local q = zfar / (zfar - znear)
     m:set(1, 1, asp_ratio * fovrad)
     m:set(2, 2, fovrad)
     m:set(3, 3, q)
-    m:set(4, 3, -1 * znear * q)
-    m:set(3, 4, 1)
-    return m:transpose()
+    m:set(3, 4, -znear * q)
+    m:set(4, 3, 1)
+    return m
+end
+
+function mat4.orthographic_matrix(r, l, b, t, znear, zfar)
+    local m = mat4()
+    m:set(1, 1, 2/(r - l))
+    m:set(1, 4, -(r + l)/(r - l))
+    m:set(2, 2, 2/(b - t))
+    m:set(2, 4, -(b + t)/(b - t))
+    m:set(3, 3, 1 / (zfar - znear))
+    m:set(3, 4, -znear/(zfar - znear))
+    m:set(4, 4, 1)
+    return m
 end
 
 function mat4.scaling_matrices(screen_width, screen_height)
@@ -347,23 +382,26 @@ function mat4.scaling_matrices(screen_width, screen_height)
     return m, n
 end
 
--- generates our 'view' matrix, which moves us from world to
--- view space
----@param eye vec3, position of camera in world space
----@param lookat vec3, position of camera target in world space
----@param up vec3, direction of 'up', typically {0, 1, 0}
+-- Expresses the world's coordinates in terms of the camera's position
+-- and viewing angle. Its inverse is the transform which shifts the world
+-- such that the camera is positioned at the origin.
+---@param eye vec3d position of camera in world space
+---@param lookat vec3d position of camera target in world space
+---@param up vec3d direction of 'up', typically {0, 1, 0}
 function mat4.look_at_matrix(eye, lookat, up)
-    local newforward = lookat:subv(eye):normalize()
-    local newup      = up:subv( newforward:mult(newforward:dot(up)) ):normalize()
-    local newright   = newup:cross(newforward)
-    -- local m = mat4.translation_matrix(eye.x, eye.y, eye.z)
-    local m = mat4()
-    m:set(1,1, newright.x)   ; m:set(1,2, newright.y)   ; m:set(1,3, newright.z)
-    m:set(2,1, newup.x)      ; m:set(2,2, newup.y)      ; m:set(2,3, newup.z)
-    m:set(3,1, newforward.x) ; m:set(3,2, newforward.y) ; m:set(3,3, newforward.z)
+    local newlookat = lookat:subv(eye):normalize()
+    local newup     = up:subv( newlookat:mult(newlookat:dot(up)) ):normalize()
+    local newright  = newup:cross(newlookat)
+    local m = mat4.translation_matrix(eye.x, eye.y, eye.z)
+    m:set(1,1, newright.x)  ; m:set(1,2, newright.y)  ; m:set(1,3, newright.z)
+    m:set(2,1, newup.x)     ; m:set(2,2, newup.y)     ; m:set(2,3, newup.z)
+    m:set(3,1, newlookat.x) ; m:set(3,2, newlookat.y) ; m:set(3,3, newlookat.z)
     m:set(4,4, 1)
-    m = m:add(mat4.translation_matrix(eye.x, eye.y, eye.z))
     return m:transpose()
+end
+
+function mat4.view_matrix(eye, lookat, up)
+    return mat4.quick_inverse(mat4.look_at_matrix(eye, lookat, up))
 end
 
 function mat4.quick_inverse(m)
