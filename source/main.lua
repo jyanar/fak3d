@@ -20,7 +20,7 @@ local ZFAR          = 100
 local ZNEAR         = 0.1
 -- local LIGHT_SRC     = vec3d(1, -10, 3)
 -- local LIGHT_DIR     = vec3d(0.3, -1, 0.3):normalize()
-local LIGHT_DIR     = vec3d(0, -1, 0)        -- down is positive y
+local LIGHT_DIR     = vec3d(0, 1, 0)        -- down is positive y
 local LIGHT_SRC     = vec3d(0, -10, 0)
 local DRAWSHADOWS   = true
 local FILLTRIANGLES = true
@@ -205,7 +205,7 @@ function playdate.update()
 
    -- Compute triangle shadows, and apply view/projection matrices
    local shadows = {}
-   local mat_shadow = mat4.identity_matrix() ; mat_shadow:set(2,2, 0.1)
+   local mat_shadow = mat4.identity_matrix() ; mat_shadow:set(2,2, -0.1)
    -- mat_shadow = mat_shadow:multm(mat4.translation_matrix(0, 1, 0))
    -- local mat_shadow = mat4.shadow_projection_matrix(LIGHT_SRC)
    shadows = apply_mesh(mat4.identity_matrix(), allmesh)
