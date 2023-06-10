@@ -262,8 +262,8 @@ function playdate.update()
 
    gfx.drawText('theta: ' .. pd.getCrankPosition(), 20, 5)
    gfx.drawText('x: ' .. utils.round(vec_camera.x, 2), 5, 220)
-   gfx.drawText('y: ' .. utils.round(vec_camera.y, 2), 55, 220)
-   gfx.drawText('z: ' .. utils.round(vec_camera.z, 2), 110, 220)
+   gfx.drawText('y: ' .. utils.round(vec_camera.y, 2), 60, 220)
+   gfx.drawText('z: ' .. utils.round(vec_camera.z, 2), 120, 220)
 end
 
 
