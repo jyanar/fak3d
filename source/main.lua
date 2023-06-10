@@ -28,9 +28,6 @@ local DRAWWIREFRAME = true
 local MESHFILE      = 'assets/icosahedron.obj'
 
 local mesh = {}
-local mesh_obj = {}  -- triangles in .obj coordinates
--- local mesh_world = {}  -- triangles in world coordinates
--- local mesh_screen = {} -- triangles projected on screen
 local allobj = {} -- list of obj3ds to render
 
 local mat_world = {}      -- transforms objects from .obj to world coordinates
@@ -204,22 +201,16 @@ function playdate.update()
    end
 
    -- Compute triangle shadows, and apply view/projection matrices
-   local shadows = {}
-   local mat_shadow = mat4.identity_matrix() ; mat_shadow:set(2,2, -0.1)
    -- mat_shadow = mat_shadow:multm(mat4.translation_matrix(0, 1, 0))
    -- local mat_shadow = mat4.shadow_projection_matrix(LIGHT_SRC)
-   shadows = apply_mesh(mat4.identity_matrix(), allmesh)
-   shadows = apply_mesh(mat4.translation_matrix(0, 20, 0), allmesh)
-   shadows = apply_mesh(mat_shadow, shadows)
-   shadows = apply_mesh(mat_view, shadows)
-   shadows = apply_mesh(mat_projection, shadows)
-   -- shadows = apply_mesh(mat_vp, shadows)
-   shadows = apply_mesh(mat_scale, shadows)
-   -- print('.... SHADOWS ......')
-   -- print(shadows[1][1]:tostring())
-   -- print(shadows[1][2]:tostring())
-   -- print(shadows[1][3]:tostring())
-   -- print('...................')
+   local mat_shadow = mat4.identity_matrix() ; mat_shadow:set(2,2, -0.1)
+   local mat_shadow = mat_scale:multm(
+                        mat_projection:multm(
+                           mat_view:multm(
+                              mat_shadow:multm(
+                                 mat4.translation_matrix(0, 20, 0):multm(
+                                    mat4.identity_matrix())))))
+   local shadows = apply_mesh(mat_shadow, allmesh)
    drawshadows(shadows)
 
    allmesh = apply_mesh(mat_vp, allmesh)

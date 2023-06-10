@@ -69,16 +69,3 @@ function vec3d:cross(vec)
   local z = self.x * vec.y - self.y * vec.x
   return vec3d(x, y, z)
 end
-
--- TODO test directions
--- function vec3d.new_right()
---   return vec3d(1, 0, 0)
--- end
-
--- function vec3d.new_up()
---   return vec3d(0, 1, 0)
--- end
-
--- function vec3d.new_forward()
---   return vec3d(0, 1, 0)
--- end
