@@ -32,8 +32,10 @@ local allobj = {} -- list of obj3ds to render
 
 local mat_world = {}      -- transforms objects from .obj to world coordinates
 local mat_view = {}       -- transforms objects to camera coordinates
+local mat_vp = {}
 local mat_projection = mat4.perspective_matrix(ASPECT_RATIO, INV_FOVRAD, ZNEAR, ZFAR)
 local mat_scale = mat4.scaling_matrix(SCREEN_WIDTH, SCREEN_HEIGHT)
+local mat_shadow_shrink = mat4.identity_matrix() ; mat_shadow_shrink:set(2,2, -0.1)
 
 local camtheta = 0
 local theta = 0
@@ -44,6 +46,9 @@ local vec_camera = vec3d(0, 0, -50)
 local vec_lookat = vec3d(0, 0, -1)
 local vec_target = vec3d(0, 0, -1)
 local vec_up     = vec3d(0, -1, 0)
+
+local CRANKPOS = pd.getCrankPosition()
+local RECOMPUTE = true
 
 -------------------------------------------------------------------------------
 
@@ -176,15 +181,23 @@ function playdate.update()
    ----------------------------------------------------
    -- Construct model, view, and projection matrices --
    ----------------------------------------------------
+   
+   -- Process dpad input
+   local input = getuserinput()
+   -- Did the user turn the crank?
+   if CRANKPOS ~= pd.getCrankPosition() then
+      CRANKPOS = pd.getCrankPosition()
+      RECOMPUTE = true
+   end
 
-   vec_camera = vec_camera:addv(getuserinput())
-   local vec_up = vec3d(0, -1, 0)
-   local vec_target = vec3d(0, 0, -1)
-   vec_lookat = mat4.rotation_y_matrix(utils.radians(-pd.getCrankPosition())):multv(vec_target)
-   -- vec_lookat = mat4.rotation_y_matrix(camtheta):multv(vec_target)
-   mat_view = mat4.inverse(mat4.view_matrix(vec_camera, vec_lookat, vec_up))
-   mat_projection = mat4.perspective_matrix(ASPECT_RATIO, INV_FOVRAD, ZNEAR, ZFAR)
-   local mat_vp = mat_projection:multm(mat_view)
+   if not input:isempty() or RECOMPUTE == true then
+      vec_camera = vec_camera:addv(input)
+      vec_lookat = mat4.rotation_y_matrix(utils.radians(-CRANKPOS)):multv(vec_target)
+      mat_view = mat4.inverse(mat4.view_matrix(vec_camera, vec_lookat, vec_up))
+      mat_vp = mat_projection:multm(mat_view)
+      RECOMPUTE = false
+      print('RECOMPUTED!!')
+   end
 
    -------------------------------------
    -- Apply matrices to mesh and draw --
@@ -201,17 +214,18 @@ function playdate.update()
    end
 
    -- Compute triangle shadows, and apply view/projection matrices
-   -- mat_shadow = mat_shadow:multm(mat4.translation_matrix(0, 1, 0))
-   -- local mat_shadow = mat4.shadow_projection_matrix(LIGHT_SRC)
-   local mat_shadow = mat4.identity_matrix() ; mat_shadow:set(2,2, -0.1)
-   local mat_shadow = mat_scale:multm(
-                        mat_projection:multm(
-                           mat_view:multm(
-                              mat_shadow:multm(
-                                 mat4.translation_matrix(0, 20, 0):multm(
-                                    mat4.identity_matrix())))))
-   local shadows = apply_mesh(mat_shadow, allmesh)
-   drawshadows(shadows)
+   if DRAWSHADOWS then
+      -- mat_shadow = mat_shadow:multm(mat4.translation_matrix(0, 1, 0))
+      -- local mat_shadow = mat4.shadow_projection_matrix(LIGHT_SRC)
+      local mat_shadow = mat_scale:multm(
+                           mat_projection:multm(
+                              mat_view:multm(
+                                 mat_shadow_shrink:multm(
+                                    mat4.translation_matrix(0, 20, 0):multm(
+                                       mat4.identity_matrix())))))
+      local shadows = apply_mesh(mat_shadow, allmesh)
+      drawshadows(shadows)
+   end
 
    allmesh = apply_mesh(mat_vp, allmesh)
 
@@ -256,9 +270,3 @@ function playdate.update()
    gfx.drawText('y: ' .. utils.round(vec_camera.y, 2), 60, 220)
    gfx.drawText('z: ' .. utils.round(vec_camera.z, 2), 120, 220)
 end
-
-
-function playdate.cranked(change, acceleratedChange)
-   camtheta += change/180
-end
-

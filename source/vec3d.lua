@@ -69,3 +69,7 @@ function vec3d:cross(vec)
   local z = self.x * vec.y - self.y * vec.x
   return vec3d(x, y, z)
 end
+
+function vec3d:isempty()
+  return self.x == 0 and self.y == 0 and self.z == 0
+end
