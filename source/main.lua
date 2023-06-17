@@ -87,22 +87,6 @@ local function setpattern(d)
    end
 end
 
-local function drawshadows(buffer)
-   gfx.setColor(gfx.kColorBlack)
-   -- gfx.fillPolygon(10, 10, 100, 100, 40, 10)
-   for itri = 1, #buffer do
-      gfx.fillPolygon(buffer[itri][1].x, buffer[itri][1].y,
-                      buffer[itri][2].x, buffer[itri][2].y,
-                      buffer[itri][3].x, buffer[itri][3].y)
-   end
-end
---    for _, triangle in ipairs(buffer) do
---       gfx.fillPolygon(triangle.verts[1].x, triangle.verts[1].y,
---                       triangle.verts[2].x, triangle.verts[2].y,
---                       triangle.verts[3].x, triangle.verts[3].y)
---    end
--- end
-
 local function drawtriangles(buffer, wireframe, fill)
    for itri = 1, #buffer do
       if fill then
