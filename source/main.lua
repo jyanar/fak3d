@@ -204,12 +204,12 @@ function playdate.update()
    -------------------------------------
 
    -- Apply object-specific matrices and add triangles to pool
-   local allmesh = {}
+   local alltriangles = {}
    for k,obj in pairs(allobj) do
       mesh = obj.mesh
       mesh = apply_mesh(obj.mat_model_fn(theta), mesh)
       for i,tri in ipairs(mesh) do
-         table.insert(allmesh, tri)
+         table.insert(alltriangles, tri)
       end
    end
 
@@ -223,14 +223,20 @@ function playdate.update()
                                  mat_shadow_shrink:multm(
                                     mat4.translation_matrix(0, 20, 0):multm(
                                        mat4.identity_matrix())))))
-      local shadows = apply_mesh(mat_shadow, allmesh)
+      local shadows = apply_mesh(mat_shadow, alltriangles)
+      -- Cull shadow triangles that lie outside viewing frustum
+      for i = #shadows, 1, -1 do
+         if all_points_outside_frustum(shadows[i]) or triangle_facing_away(shadows[i], vec_camera) then
+            table.remove(shadows, i)
+         end
+      end
       drawshadows(shadows)
    end
 
-   allmesh = apply_mesh(mat_vp, allmesh)
+   alltriangles = apply_mesh(mat_vp, alltriangles)
 
    -- Sort model triangles by z depth
-   table.sort(allmesh, function(a, b)
+   table.sort(alltriangles, function(a, b)
       local z1 = (a[1].z + a[2].z + a[3].z) / 3
       local z2 = (b[1].z + b[2].z + b[3].z) / 3
       return z1 > z2
@@ -239,29 +245,29 @@ function playdate.update()
    -- Compute projection of triangle normals with light source
    local shadevals = {}
    if FILLTRIANGLES then
-      for i = 1, #allmesh do
-         local n = normal(allmesh[i])
+      for i = 1, #alltriangles do
+         local n = normal(alltriangles[i])
          shadevals[i] = n:dot(LIGHT_DIR)
       end
    end
 
    -- Cull triangles that are either occluded or lie outside the viewing frustum.
-   for i = #allmesh, 1, -1 do
-      if all_points_outside_frustum(allmesh[i]) or triangle_facing_away(allmesh[i], vec_camera) then
-         table.remove(allmesh, i)
+   for i = #alltriangles, 1, -1 do
+      if all_points_outside_frustum(alltriangles[i]) or triangle_facing_away(alltriangles[i], vec_camera) then
+         table.remove(alltriangles, i)
          table.remove(shadevals, i)
       end
    end
 
-   allmesh = apply_mesh(mat_scale, allmesh)
+   alltriangles = apply_mesh(mat_scale, alltriangles)
    -- print('.... TRIANGLES ......')
-   -- print(allmesh[1][1]:tostring())
-   -- print(allmesh[1][2]:tostring())
-   -- print(allmesh[1][3]:tostring())
+   -- print(alltriangles[1][1]:tostring())
+   -- print(alltriangles[1][2]:tostring())
+   -- print(alltriangles[1][3]:tostring())
    -- print('...................')
 
 
-   drawtriangles(allmesh, DRAWWIREFRAME, FILLTRIANGLES, shadevals)
+   drawtriangles(alltriangles, DRAWWIREFRAME, FILLTRIANGLES, shadevals)
 
    pd.drawFPS(5,5)
 
