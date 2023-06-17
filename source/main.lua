@@ -32,8 +32,10 @@ local allobj = {} -- list of obj3ds to render
 
 local mat_world = {}      -- transforms objects from .obj to world coordinates
 local mat_view = {}       -- transforms objects to camera coordinates
+local mat_vp = {}
 local mat_projection = mat4.perspective_matrix(ASPECT_RATIO, INV_FOVRAD, ZNEAR, ZFAR)
 local mat_scale = mat4.scaling_matrix(SCREEN_WIDTH, SCREEN_HEIGHT)
+local mat_shadow_shrink = mat4.identity_matrix() ; mat_shadow_shrink:set(2,2, -0.1)
 
 local camtheta = 0
 local theta = 0
@@ -45,12 +47,17 @@ local vec_lookat = vec3d(0, 0, -1)
 local vec_target = vec3d(0, 0, -1)
 local vec_up     = vec3d(0, -1, 0)
 
+local CRANKPOS = pd.getCrankPosition()
+local RECOMPUTE = true
+
 -------------------------------------------------------------------------------
 
 local function apply(matrix, triangle)
    return { matrix:multv(triangle[1]),
             matrix:multv(triangle[2]),
-            matrix:multv(triangle[3]) }
+            matrix:multv(triangle[3]),
+            triangle[4],
+          }
 end
 
 local function apply_mesh(matrix, mesh)
@@ -80,32 +87,15 @@ local function setpattern(d)
    end
 end
 
-local function drawshadows(buffer)
-   gfx.setColor(gfx.kColorBlack)
-   -- gfx.fillPolygon(10, 10, 100, 100, 40, 10)
+local function drawtriangles(buffer, wireframe, fill)
    for itri = 1, #buffer do
-      gfx.fillPolygon(buffer[itri][1].x, buffer[itri][1].y,
-                      buffer[itri][2].x, buffer[itri][2].y,
-                      buffer[itri][3].x, buffer[itri][3].y)
-   end
-end
---    for _, triangle in ipairs(buffer) do
---       gfx.fillPolygon(triangle.verts[1].x, triangle.verts[1].y,
---                       triangle.verts[2].x, triangle.verts[2].y,
---                       triangle.verts[3].x, triangle.verts[3].y)
---    end
--- end
-
-local function drawtriangles(buffer, drawwireframe, drawfill, shadevalues)
-   gfx.setColor(gfx.kColorBlack)
-   for itri = 1, #buffer do
-      if drawfill then
-         setpattern(shadevalues[itri])
+      if fill then
+         setpattern(buffer[itri][4])
          gfx.fillPolygon(buffer[itri][1].x, buffer[itri][1].y,
                          buffer[itri][2].x, buffer[itri][2].y,
                          buffer[itri][3].x, buffer[itri][3].y)
       end
-      if drawwireframe then
+      if wireframe then
          gfx.setColor(gfx.kColorBlack)
          gfx.drawPolygon(buffer[itri][1].x, buffer[itri][1].y,
                          buffer[itri][2].x, buffer[itri][2].y,
@@ -176,78 +166,89 @@ function playdate.update()
    ----------------------------------------------------
    -- Construct model, view, and projection matrices --
    ----------------------------------------------------
+   
+   -- Process dpad input
+   local input = getuserinput()
+   -- Did the user turn the crank?
+   if CRANKPOS ~= pd.getCrankPosition() then
+      CRANKPOS = pd.getCrankPosition()
+      RECOMPUTE = true
+   end
 
-   vec_camera = vec_camera:addv(getuserinput())
-   local vec_up = vec3d(0, -1, 0)
-   local vec_target = vec3d(0, 0, -1)
-   vec_lookat = mat4.rotation_y_matrix(utils.radians(-pd.getCrankPosition())):multv(vec_target)
-   -- vec_lookat = mat4.rotation_y_matrix(camtheta):multv(vec_target)
-   mat_view = mat4.inverse(mat4.view_matrix(vec_camera, vec_lookat, vec_up))
-   mat_projection = mat4.perspective_matrix(ASPECT_RATIO, INV_FOVRAD, ZNEAR, ZFAR)
-   local mat_vp = mat_projection:multm(mat_view)
+   if not input:isempty() or RECOMPUTE == true then
+      vec_camera = vec_camera:addv(input)
+      vec_lookat = mat4.rotation_y_matrix(utils.radians(-CRANKPOS)):multv(vec_target)
+      mat_view = mat4.inverse(mat4.view_matrix(vec_camera, vec_lookat, vec_up))
+      mat_vp = mat_projection:multm(mat_view)
+      RECOMPUTE = false
+      print('RECOMPUTED!!')
+   end
 
    -------------------------------------
    -- Apply matrices to mesh and draw --
    -------------------------------------
 
    -- Apply object-specific matrices and add triangles to pool
-   local allmesh = {}
+   local alltriangles = {}
    for k,obj in pairs(allobj) do
       mesh = obj.mesh
       mesh = apply_mesh(obj.mat_model_fn(theta), mesh)
       for i,tri in ipairs(mesh) do
-         table.insert(allmesh, tri)
+         table.insert(alltriangles, tri)
       end
    end
 
    -- Compute triangle shadows, and apply view/projection matrices
-   -- mat_shadow = mat_shadow:multm(mat4.translation_matrix(0, 1, 0))
-   -- local mat_shadow = mat4.shadow_projection_matrix(LIGHT_SRC)
-   local mat_shadow = mat4.identity_matrix() ; mat_shadow:set(2,2, -0.1)
-   local mat_shadow = mat_scale:multm(
-                        mat_projection:multm(
-                           mat_view:multm(
-                              mat_shadow:multm(
-                                 mat4.translation_matrix(0, 20, 0):multm(
-                                    mat4.identity_matrix())))))
-   local shadows = apply_mesh(mat_shadow, allmesh)
-   drawshadows(shadows)
+   if DRAWSHADOWS then
+      -- mat_shadow = mat_shadow:multm(mat4.translation_matrix(0, 1, 0))
+      -- local mat_shadow = mat4.shadow_projection_matrix(LIGHT_SRC)
+      local mat_shadow = mat_scale:multm(
+                           mat_projection:multm(
+                              mat_view:multm(
+                                 mat_shadow_shrink:multm(
+                                    mat4.translation_matrix(0, 20, 0):multm(
+                                       mat4.identity_matrix())))))
+      local shadows = apply_mesh(mat_shadow, alltriangles)
+      for itri, _ in ipairs(shadows) do
+         shadows[itri][4] = 1.0 -- Set d to 1, max shading
+      end
 
-   allmesh = apply_mesh(mat_vp, allmesh)
+      -- Cull shadow triangles that lie outside viewing frustum
+      for i = #shadows, 1, -1 do
+         if all_points_outside_frustum(shadows[i]) or triangle_facing_away(shadows[i], vec_camera) then
+            table.remove(shadows, i)
+         end
+      end
+      drawtriangles(shadows, false, true)
+   end
+
+   alltriangles = apply_mesh(mat_vp, alltriangles)
 
    -- Sort model triangles by z depth
-   table.sort(allmesh, function(a, b)
+   table.sort(alltriangles, function(a, b)
       local z1 = (a[1].z + a[2].z + a[3].z) / 3
       local z2 = (b[1].z + b[2].z + b[3].z) / 3
       return z1 > z2
    end)
 
    -- Compute projection of triangle normals with light source
-   local shadevals = {}
    if FILLTRIANGLES then
-      for i = 1, #allmesh do
-         local n = normal(allmesh[i])
-         shadevals[i] = n:dot(LIGHT_DIR)
+      for i = 1, #alltriangles do
+         local n = normal(alltriangles[i])
+         alltriangles[i][4] = n:dot(LIGHT_DIR)
       end
    end
 
    -- Cull triangles that are either occluded or lie outside the viewing frustum.
-   for i = #allmesh, 1, -1 do
-      if all_points_outside_frustum(allmesh[i]) or triangle_facing_away(allmesh[i], vec_camera) then
-         table.remove(allmesh, i)
-         table.remove(shadevals, i)
+   for i = #alltriangles, 1, -1 do
+      if all_points_outside_frustum(alltriangles[i]) or triangle_facing_away(alltriangles[i], vec_camera) then
+         table.remove(alltriangles, i)
       end
    end
 
-   allmesh = apply_mesh(mat_scale, allmesh)
-   -- print('.... TRIANGLES ......')
-   -- print(allmesh[1][1]:tostring())
-   -- print(allmesh[1][2]:tostring())
-   -- print(allmesh[1][3]:tostring())
-   -- print('...................')
+   alltriangles = apply_mesh(mat_scale, alltriangles)
 
-
-   drawtriangles(allmesh, DRAWWIREFRAME, FILLTRIANGLES, shadevals)
+   drawtriangles(alltriangles, DRAWWIREFRAME, FILLTRIANGLES)
 
    pd.drawFPS(5,5)
 
@@ -256,9 +257,3 @@ function playdate.update()
    gfx.drawText('y: ' .. utils.round(vec_camera.y, 2), 60, 220)
    gfx.drawText('z: ' .. utils.round(vec_camera.z, 2), 120, 220)
 end
-
-
-function playdate.cranked(change, acceleratedChange)
-   camtheta += change/180
-end
-

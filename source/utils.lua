@@ -38,9 +38,12 @@ function utils.readobj(filepath)
       local p1 = vtable[face[1]]
       local p2 = vtable[face[2]]
       local p3 = vtable[face[3]]
+      -- A triangle is defined as three points and a value d which defines its shading.
+      -- d = 0, no shading. d = 1, black.
       local tri = { vec3d(p1[1], p1[2], p1[3]),
                     vec3d(p2[1], p2[2], p2[3]),
-                    vec3d(p3[1], p3[2], p3[3]) }
+                    vec3d(p3[1], p3[2], p3[3]),
+                    0.0 }
       table.insert(mesh, tri)
    end
    return mesh
