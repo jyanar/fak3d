@@ -43,7 +43,7 @@ function utils.readobj(filepath)
       local tri = { vec3d(p1[1], p1[2], p1[3]),
                     vec3d(p2[1], p2[2], p2[3]),
                     vec3d(p3[1], p3[2], p3[3]),
-                    0 }
+                    0.0 }
       table.insert(mesh, tri)
    end
    return mesh

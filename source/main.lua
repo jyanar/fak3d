@@ -55,7 +55,9 @@ local RECOMPUTE = true
 local function apply(matrix, triangle)
    return { matrix:multv(triangle[1]),
             matrix:multv(triangle[2]),
-            matrix:multv(triangle[3]) }
+            matrix:multv(triangle[3]),
+            triangle[4],
+          }
 end
 
 local function apply_mesh(matrix, mesh)
@@ -101,16 +103,15 @@ end
 --    end
 -- end
 
-local function drawtriangles(buffer, drawwireframe, drawfill, shadevalues)
-   gfx.setColor(gfx.kColorBlack)
+local function drawtriangles(buffer, wireframe, fill)
    for itri = 1, #buffer do
-      if drawfill then
-         setpattern(shadevalues[itri])
+      if fill then
+         setpattern(buffer[itri][4])
          gfx.fillPolygon(buffer[itri][1].x, buffer[itri][1].y,
                          buffer[itri][2].x, buffer[itri][2].y,
                          buffer[itri][3].x, buffer[itri][3].y)
       end
-      if drawwireframe then
+      if wireframe then
          gfx.setColor(gfx.kColorBlack)
          gfx.drawPolygon(buffer[itri][1].x, buffer[itri][1].y,
                          buffer[itri][2].x, buffer[itri][2].y,
@@ -224,13 +225,17 @@ function playdate.update()
                                     mat4.translation_matrix(0, 20, 0):multm(
                                        mat4.identity_matrix())))))
       local shadows = apply_mesh(mat_shadow, alltriangles)
+      for itri, _ in ipairs(shadows) do
+         shadows[itri][4] = 1.0 -- Set d to 1, max shading
+      end
+
       -- Cull shadow triangles that lie outside viewing frustum
       for i = #shadows, 1, -1 do
          if all_points_outside_frustum(shadows[i]) or triangle_facing_away(shadows[i], vec_camera) then
             table.remove(shadows, i)
          end
       end
-      drawshadows(shadows)
+      drawtriangles(shadows, false, true)
    end
 
    alltriangles = apply_mesh(mat_vp, alltriangles)
@@ -243,11 +248,10 @@ function playdate.update()
    end)
 
    -- Compute projection of triangle normals with light source
-   local shadevals = {}
    if FILLTRIANGLES then
       for i = 1, #alltriangles do
          local n = normal(alltriangles[i])
-         shadevals[i] = n:dot(LIGHT_DIR)
+         alltriangles[i][4] = n:dot(LIGHT_DIR)
       end
    end
 
@@ -255,19 +259,12 @@ function playdate.update()
    for i = #alltriangles, 1, -1 do
       if all_points_outside_frustum(alltriangles[i]) or triangle_facing_away(alltriangles[i], vec_camera) then
          table.remove(alltriangles, i)
-         table.remove(shadevals, i)
       end
    end
 
    alltriangles = apply_mesh(mat_scale, alltriangles)
-   -- print('.... TRIANGLES ......')
-   -- print(alltriangles[1][1]:tostring())
-   -- print(alltriangles[1][2]:tostring())
-   -- print(alltriangles[1][3]:tostring())
-   -- print('...................')
 
-
-   drawtriangles(alltriangles, DRAWWIREFRAME, FILLTRIANGLES, shadevals)
+   drawtriangles(alltriangles, DRAWWIREFRAME, FILLTRIANGLES)
 
    pd.drawFPS(5,5)
 
