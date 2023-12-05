@@ -166,7 +166,7 @@ function playdate.update()
    ----------------------------------------------------
    -- Construct model, view, and projection matrices --
    ----------------------------------------------------
-   
+
    -- Process dpad input
    local input = getuserinput()
    -- Did the user turn the crank?
@@ -181,7 +181,7 @@ function playdate.update()
       mat_view = mat4.inverse(mat4.view_matrix(vec_camera, vec_lookat, vec_up))
       mat_vp = mat_projection:multm(mat_view)
       RECOMPUTE = false
-      print('RECOMPUTED!!')
+      -- print('RECOMPUTED!!')
    end
 
    -------------------------------------
@@ -254,6 +254,6 @@ function playdate.update()
 
    gfx.drawText('theta: ' .. pd.getCrankPosition(), 20, 5)
    gfx.drawText('x: ' .. utils.round(vec_camera.x, 2), 5, 220)
-   gfx.drawText('y: ' .. utils.round(vec_camera.y, 2), 60, 220)
+   gfx.drawText('y: ' .. utils.round(vec_camera.y, 2), 70, 220)
    gfx.drawText('z: ' .. utils.round(vec_camera.z, 2), 120, 220)
 end

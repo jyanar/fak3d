@@ -1,5 +1,10 @@
 # fak3d
 
-A simple and (highly unoptimized) 3D renderer for the Playdate.
+### A simple (but unoptimized) 3D renderer for the Playdate console.
 
-This was primarily done as a way of learning how 3D rendering works, on some fun and niche hardware. There are many improvements that could be made: doing the matrix-matrix and matrix-vector multiplications in C, for instance. Or maybe porting the entire thing to C.
+![3d scene](source/assets/fak3d.gif)
+
+Primarily done to learn how 3D rendering works, on some fun and niche hardware.
+While performance is decent in the simulator, it runs slowly on the actual
+hardware. Supports the ability to navigate using the D-Pad, and turn using the
+crank.
